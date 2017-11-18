@@ -1,0 +1,11 @@
+(jbuild_version 1)
+
+(menhir
+  ((modules (parser))))
+
+(ocamllex
+  (lexer))
+
+(executable
+ ((name main)
+  (libraries (num core))))

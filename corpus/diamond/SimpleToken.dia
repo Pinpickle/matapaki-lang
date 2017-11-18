@@ -1,0 +1,36 @@
+contract SimpleToken {
+  state {
+    minter: Address,
+    balances: [Address => Nat],
+  }
+
+  mutating init(): () {
+    state.minter = currentMessage.sender
+  }
+  
+  external mutating mint(owner: Address, amount: Nat): () {
+    if (environment.sender != state.minter) {
+      abort;
+    }
+
+    state.balances[environment.sender] = state.balances[environment.sender] + amount;
+
+    return ()
+  }
+
+  external mutating send(to: Address, amount: Nat): () {
+
+
+    
+    if (balances[environment.sender] < amount) {
+      abort;
+    }
+
+    state.balances[environment.sender] = state.balances[environment.sender] - amount;
+    state.balances[to] = state.balances[to] + amount;
+  }
+  
+  external stateful queryBalance(address: Address): () {
+    return state.balances[address];
+  }
+}
