@@ -1,5 +1,5 @@
 theory Compiler
-  imports Main "~~/src/HOL/Library/Code_Target_Int" "./eth-isabelle/ContractSem" "./eth-isabelle/RelationalSem" "./eth-isabelle/ProgramInAvl"
+  imports Main List "~~/src/HOL/Library/Code_Target_Int" "./eth-isabelle/ContractSem" "./eth-isabelle/RelationalSem" "./eth-isabelle/ProgramInAvl"
 begin
 
 datatype astValue = Integer "int" | Bool "bool"
@@ -30,20 +30,22 @@ fun findType :: "astExpression => (astType, unit) either" where
       Left ()
   )"
 
-fun step :: "astExpression => (astExpression, unit) either" where
-  "step (Plus ((Value (Integer n1)), (Value (Integer n2)))) = Right (Value (Integer (n1 + n2)))" |
-  "step (Plus ((Value v), expression)) = (
-    case (step expression) of
-      Right result => Right (Plus (Value v, result)) |
-      error => error
-    )" |
-  "step (Plus (expression1, expression2)) = (
-    case (step expression1) of
-      Right result => Right (Plus (result, expression2)) |
-      error => error
-    )" |
-  "step (Or ((Value (Bool b1)), (Value (Bool b2)))) = Right (Value (Bool (b1 | b2)))" |
-  "step _ = Left ()"
+fun intToBytes :: "int \<Rightarrow> 8 word list" where
+  "intToBytes n = (word_rsplit (word_of_int n::256 word))"
 
-export_code findType step Plus TInt Integer int_of_integer integer_of_int Right in OCaml
+fun boolToWord :: "bool \<Rightarrow> 8 word" where
+  "boolToWord b = (if b then 1 else 0)"
+
+fun compileToBytecode :: "astExpression => inst list" where
+  "compileToBytecode (Plus (e1, e2)) =
+    (compileToBytecode e1) @ (compileToBytecode e2) @ [Arith ADD]" |
+  "compileToBytecode (Or (e1, e2)) =
+    (compileToBytecode e1) @ (compileToBytecode e2) @ [Bits inst_AND]" |
+  "compileToBytecode (Value (Integer n)) = [Stack (PUSH_N (intToBytes n))]" |
+  "compileToBytecode (Value (Bool b)) = [Stack (PUSH_N [boolToWord b])]"
+
+fun instToInts :: "inst \<Rightarrow> int list" where
+  "instToInts inst = map (\<lambda> w. unat w) (inst_code inst)"
+
+export_code findType instToInts compileToBytecode Plus TInt Integer int_of_integer integer_of_int Right inst_code in OCaml
   file "src/compiler_theory.ml"

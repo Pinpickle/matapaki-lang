@@ -21,7 +21,7 @@ let rec parse_and_print lexbuf =
   match parse_with_error lexbuf with
   | Some value ->
     print_endline "Running";
-    Interpreter.run (Parse_ast.compiler_ast_of_expression value)
+    print_endline (Compile.compile (Parse_ast.compiler_ast_of_expression value))
   | None -> ()
 
 let loop filename () =
