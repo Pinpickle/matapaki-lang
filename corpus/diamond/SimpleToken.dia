@@ -1,36 +1,65 @@
+type State = {
+  minter: Address,
+  balances: [Address => Nat],
+}
+
+fun init: { environment: Environment } -> State {
+  return {
+    minter = environment.sender,
+    balances = [],
+  };
+}
+
+fun mint: { environment: Environment, state: State, owner: Address, amount: Nat } -> { return: {}, state: State } {
+  if (environment.sender != state.minter) {
+    abort();
+  }
+
+  return {
+    value = {},
+    state = {
+      ...state,
+      balances = [
+        ...state.balances,
+        (owner): state.balances[owner] + amount,
+      ],
+    },
+  };
+}
+
+fun send: { environment: Environment, to: Address, amount: Nat } -> { value: {}, state: State } {
+  if (state.balances[environment.sender] < amount) {
+    abort();
+  }
+
+  return {
+    value = {},
+    state = {
+      ...state,
+      balances = [
+        ...state.balances,
+        (to): state.balances[to] + amount,
+        (environment.sender): state.balances[environment.sender] - amount,
+      ],
+    },
+  };
+}
+
+fun queryBalance: { environment: Environment, state: State, for: Address } -> { value: Nat, state: State } {
+  return {
+    value = state.balances[for],
+    state = state,
+  }
+}
+
 contract SimpleToken {
-  state {
-    minter: Address,
-    balances: [Address => Nat],
-  }
-
-  mutating init(): () {
-    state.minter = currentMessage.sender
-  }
-  
-  external mutating mint(owner: Address, amount: Nat): () {
-    if (environment.sender != state.minter) {
-      abort;
-    }
-
-    state.balances[environment.sender] = state.balances[environment.sender] + amount;
-
-    return ()
-  }
-
-  external mutating send(to: Address, amount: Nat): () {
-
-
-    
-    if (balances[environment.sender] < amount) {
-      abort;
-    }
-
-    state.balances[environment.sender] = state.balances[environment.sender] - amount;
-    state.balances[to] = state.balances[to] + amount;
-  }
-  
-  external stateful queryBalance(address: Address): () {
-    return state.balances[address];
-  }
+  init,
+  payable = {
+    default = abort
+  },
+  external = {
+    mint,
+    send,
+    queryBalance,
+  },
 }

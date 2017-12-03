@@ -21,7 +21,9 @@ let rec parse_and_print lexbuf =
   match parse_with_error lexbuf with
   | Some value ->
     print_endline "Running";
-    print_endline (Compile.compile (Parse_ast.compiler_ast_of_expression value))
+    print_endline "Parsed AST";
+    print_endline (Pretty_print.pretty_print_ast_expression value);
+    print_endline (Compile.compile (value))
   | None -> ()
 
 let loop filename () =

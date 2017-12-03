@@ -1,33 +1,32 @@
 %token LEFT_PAREN
 %token RIGHT_PAREN
-%token TRUE
-%token FALSE
+%token <bool> BOOL
 %token <int> INT
-%token PLUS
-%token OR
 %token EOF
+%token <Compiler_theory.Ast.astBinaryOperator> BINARY_OPERATOR
 
-%start <Parse_ast.expression option> prog
+%start <Compiler_theory.Ast.astExpression option> prog
 %%
 
 prog: expr = expression EOF { Some expr }
 
 expression:
-  | e1 = expression; PLUS; e2 = value
-    { Parse_ast.Plus (e1, e2) }
-  | e1 = expression; OR; e2 = value
-    { Parse_ast.Or (e1, e2) }
+  | e1 = expression; operator = BINARY_OPERATOR; e2 = sub_expression
+    { Compiler_theory.Ast.BinaryOperator (operator, (e1, e2)) }
+  | e = sub_expression
+    { e }
+  ;
+
+sub_expression:
   | v = value
-    { v }
+    { Compiler_theory.Ast.Value v }
+  | LEFT_PAREN; e = expression; RIGHT_PAREN
+    { e }
   ;
 
 value:
   | n = INT
-    { Parse_ast.Integer n }
-  | TRUE
-    { Parse_ast.Bool true }
-  | FALSE
-    { Parse_ast.Bool false }
-  | LEFT_PAREN; e = expression; RIGHT_PAREN
-    { e }
+    { Compiler_theory.Ast.Integer (Compiler_theory.Arith.Int_of_integer (Big_int.big_int_of_int n)) }
+  | b = BOOL
+    { Compiler_theory.Ast.Bool b }
   ;

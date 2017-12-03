@@ -1,6 +1,7 @@
 {
   open Lexing
   open Parser
+  open Compiler_theory
 
   exception SyntaxError of string
 
@@ -21,11 +22,13 @@ rule read =
   | white { read lexbuf }
   | newline { next_line lexbuf; read lexbuf }
   | int { INT (int_of_string (Lexing.lexeme lexbuf)) }
-  | "true" { TRUE }
-  | "false" { FALSE }
+  | "+" { BINARY_OPERATOR Ast.Plus }
+  | "-" { BINARY_OPERATOR Ast.Minus }
+  | "&&" { BINARY_OPERATOR Ast.And }
+  | "||" { BINARY_OPERATOR Ast.Or }
+  | "true" { BOOL true }
+  | "false" { BOOL false } 
   | "(" { LEFT_PAREN }
   | ")" { RIGHT_PAREN }
-  | "+" { PLUS }
-  | "|" { OR }
   | _ { raise (SyntaxError ("Unexpected char: " ^ Lexing.lexeme lexbuf)) }
   | eof { EOF }

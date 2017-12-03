@@ -1,37 +1,8 @@
-module Finite_Set : sig
-  type 'a finite = unit
-end = struct
-
-type 'a finite = unit;;
-
-end;; (*struct Finite_Set*)
-
-module HOL : sig
-  type 'a equal = {equal : 'a -> 'a -> bool}
-  val equal : 'a equal -> 'a -> 'a -> bool
-  type 'a itself = Type
-  val eq : 'a equal -> 'a -> 'a -> bool
-end = struct
-
-type 'a equal = {equal : 'a -> 'a -> bool};;
-let equal _A = _A.equal;;
-
-type 'a itself = Type;;
-
-let rec eq _A a b = equal _A a b;;
-
-end;; (*struct HOL*)
-
 module Product_Type : sig
-  val equal_unit : unit HOL.equal
   val apsnd : ('a -> 'b) -> 'c * 'a -> 'c * 'b
   val fst : 'a * 'b -> 'a
   val snd : 'a * 'b -> 'b
 end = struct
-
-let rec equal_unita u v = true;;
-
-let equal_unit = ({HOL.equal = equal_unita} : unit HOL.equal);;
 
 let rec apsnd f (x, y) = (x, f y);;
 
@@ -55,6 +26,14 @@ let less _A = _A.less;;
 let rec max _A a b = (if less_eq _A a b then b else a);;
 
 end;; (*struct Orderings*)
+
+module HOL : sig
+  type 'a itself = Type
+end = struct
+
+type 'a itself = Type;;
+
+end;; (*struct HOL*)
 
 module Fun : sig
   val comp : ('a -> 'b) -> ('c -> 'a) -> 'c -> 'b
@@ -208,6 +187,35 @@ let rec modulo_int
   k l = Int_of_integer (modulo_integer (integer_of_int k) (integer_of_int l));;
 
 end;; (*struct Arith*)
+
+module Ast : sig
+  type ('a, 'b) either = Right of 'a | Left of 'b
+  type astValue = Integer of Arith.int | Bool of bool
+  type astBinaryOperator = Plus | Minus | Or | And
+  type astExpression =
+    BinaryOperator of (astBinaryOperator * (astExpression * astExpression)) |
+    Value of astValue
+end = struct
+
+type ('a, 'b) either = Right of 'a | Left of 'b;;
+
+type astValue = Integer of Arith.int | Bool of bool;;
+
+type astBinaryOperator = Plus | Minus | Or | And;;
+
+type astExpression =
+  BinaryOperator of (astBinaryOperator * (astExpression * astExpression)) |
+  Value of astValue;;
+
+end;; (*struct Ast*)
+
+module Finite_Set : sig
+  type 'a finite = unit
+end = struct
+
+type 'a finite = unit;;
+
+end;; (*struct Finite_Set*)
 
 module Numeral_Type : sig
   type 'a bit0
@@ -944,82 +952,60 @@ let rec inst_code = function Unknown byte -> [byte]
 
 end;; (*struct Evm*)
 
-module Compiler : sig
+module Types : sig
   type astType = TInt | TBool
-  type ('a, 'b) either = Right of 'a | Left of 'b
-  type astValue = Integer of Arith.int | Bool of bool
-  type astExpression = Plus of (astExpression * astExpression) |
-    Or of (astExpression * astExpression) | Value of astValue
-  val findType : astExpression -> (astType, unit) either
-  val instToInts : Evm.inst -> Arith.int list
-  val compileToBytecode : astExpression -> Evm.inst list
+  val either_type_of_expression :
+    Ast.astExpression -> (astType, unit) Ast.either
 end = struct
 
 type astType = TInt | TBool;;
 
-let rec equal_astTypea x0 x1 = match x0, x1 with TInt, TBool -> false
-                         | TBool, TInt -> false
-                         | TBool, TBool -> true
-                         | TInt, TInt -> true;;
+let rec type_of_value = function Ast.Integer uu -> TInt
+                        | Ast.Bool uv -> TBool;;
 
-let equal_astType = ({HOL.equal = equal_astTypea} : astType HOL.equal);;
+let rec either_type_of_binary_operator
+  = function (Ast.Plus, (TInt, TInt)) -> Ast.Right TInt
+    | (Ast.Minus, (TInt, TInt)) -> Ast.Right TInt
+    | (Ast.Or, (TBool, TBool)) -> Ast.Right TBool
+    | (Ast.And, (TBool, TBool)) -> Ast.Right TBool
+    | (Ast.Minus, (TBool, uw)) -> Ast.Left ()
+    | (Ast.Minus, (uv, TBool)) -> Ast.Left ()
+    | (Ast.Or, (TInt, uw)) -> Ast.Left ()
+    | (Ast.Or, (uv, TInt)) -> Ast.Left ()
+    | (Ast.And, (TInt, uw)) -> Ast.Left ()
+    | (Ast.And, (uv, TInt)) -> Ast.Left ()
+    | (Ast.Plus, (TBool, uw)) -> Ast.Left ()
+    | (uu, (TBool, TInt)) -> Ast.Left ()
+    | (Ast.Plus, (uv, TBool)) -> Ast.Left ()
+    | (uu, (TInt, TBool)) -> Ast.Left ();;
 
-type ('a, 'b) either = Right of 'a | Left of 'b;;
-
-type astValue = Integer of Arith.int | Bool of bool;;
-
-type astExpression = Plus of (astExpression * astExpression) |
-  Or of (astExpression * astExpression) | Value of astValue;;
-
-let rec equal_either _A _B
-  x0 x1 = match x0, x1 with Right x1, Left x2 -> false
-    | Left x2, Right x1 -> false
-    | Left x2, Left y2 -> HOL.eq _B x2 y2
-    | Right x1, Right y1 -> HOL.eq _A x1 y1;;
-
-let rec findType
+let rec either_type_of_either_binary_operator
   = function
-    Plus (expression1, expression2) ->
-      (let type1 = findType expression1 in
-       let type2 = findType expression2 in
-        (if equal_either equal_astType Product_Type.equal_unit type1
-              (Right TInt) &&
-              equal_either equal_astType Product_Type.equal_unit type2
-                (Right TInt)
-          then Right TInt else Left ()))
-    | Value (Integer uu) -> Right TInt
-    | Value (Bool uv) -> Right TBool
-    | Or (expression1, expression2) ->
-        (let type1 = findType expression1 in
-         let type2 = findType expression2 in
-          (if equal_either equal_astType Product_Type.equal_unit type1
-                (Right TBool) &&
-                equal_either equal_astType Product_Type.equal_unit type2
-                  (Right TBool)
-            then Right TBool else Left ()));;
+    (operator, (Ast.Right t1, Ast.Right t2)) ->
+      either_type_of_binary_operator (operator, (t1, t2))
+    | (uu, (Ast.Left v, uw)) -> Ast.Left ()
+    | (uu, (uv, Ast.Left v)) -> Ast.Left ();;
 
-let rec boolToWord
-  b = (if b then Word.one_word
-                   (Type_Length.len0_bit0
-                     (Type_Length.len0_bit0
-                       (Type_Length.len0_bit0 Type_Length.len0_num1)))
-        else Word.zero_word
-               (Type_Length.len0_bit0
-                 (Type_Length.len0_bit0
-                   (Type_Length.len0_bit0 Type_Length.len0_num1))));;
+let rec either_type_of_expression
+  = function
+    Ast.BinaryOperator (operator, (expression1, expression2)) ->
+      either_type_of_either_binary_operator
+        (operator,
+          (either_type_of_expression expression1,
+            either_type_of_expression expression2))
+    | Ast.Value v -> Ast.Right (type_of_value v);;
 
-let rec instToInts
-  inst =
-    List.map Arith.int_of_nat
-      (List.map
-        (Word.unat
-          (Type_Length.len0_bit0
-            (Type_Length.len0_bit0
-              (Type_Length.len0_bit0 Type_Length.len0_num1))))
-        (Evm.inst_code inst));;
+end;; (*struct Types*)
 
-let rec intToBytes
-  n = Word.word_rsplit
+module Codegen : sig
+  val integers_of_instruction : Evm.inst -> Arith.int list
+  val instructions_of_expression : Ast.astExpression -> Evm.inst list
+end = struct
+
+let rec bytes_of_value
+  = function
+    Ast.Integer i ->
+      Word.word_rsplit
         (Type_Length.len0_bit0
           (Type_Length.len0_bit0
             (Type_Length.len0_bit0
@@ -1039,15 +1025,38 @@ let rec intToBytes
                     (Type_Length.len0_bit0
                       (Type_Length.len0_bit0
                         (Type_Length.len0_bit0 Type_Length.len0_num1))))))))
-          n);;
+          i)
+    | Ast.Bool b ->
+        (if b then [Word.one_word
+                      (Type_Length.len0_bit0
+                        (Type_Length.len0_bit0
+                          (Type_Length.len0_bit0 Type_Length.len0_num1)))]
+          else [Word.zero_word
+                  (Type_Length.len0_bit0
+                    (Type_Length.len0_bit0
+                      (Type_Length.len0_bit0 Type_Length.len0_num1)))]);;
 
-let rec compileToBytecode
+let rec integers_of_instruction
+  inst =
+    List.map Arith.int_of_nat
+      (List.map
+        (Word.unat
+          (Type_Length.len0_bit0
+            (Type_Length.len0_bit0
+              (Type_Length.len0_bit0 Type_Length.len0_num1))))
+        (Evm.inst_code inst));;
+
+let rec instructions_of_binary_operator
+  = function Ast.Plus -> [Evm.Arith Evm.ADD]
+    | Ast.Minus -> [Evm.Arith Evm.SUB]
+    | Ast.Or -> [Evm.Bits Evm.Inst_OR]
+    | Ast.And -> [Evm.Bits Evm.Inst_AND];;
+
+let rec instructions_of_expression
   = function
-    Plus (e1, e2) ->
-      compileToBytecode e1 @ compileToBytecode e2 @ [Evm.Arith Evm.ADD]
-    | Or (e1, e2) ->
-        compileToBytecode e1 @ compileToBytecode e2 @ [Evm.Bits Evm.Inst_AND]
-    | Value (Integer n) -> [Evm.Stack (Evm.PUSH_N (intToBytes n))]
-    | Value (Bool b) -> [Evm.Stack (Evm.PUSH_N [boolToWord b])];;
+    Ast.BinaryOperator (operator, (e1, e2)) ->
+      instructions_of_expression e1 @
+        instructions_of_expression e2 @ instructions_of_binary_operator operator
+    | Ast.Value v -> [Evm.Stack (Evm.PUSH_N (bytes_of_value v))];;
 
-end;; (*struct Compiler*)
+end;; (*struct Codegen*)
