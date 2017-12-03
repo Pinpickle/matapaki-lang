@@ -8,3 +8,8 @@ let instruction_to_int_list instruction =
 
 let compile ast = 
   bytecode_as_string (List.map instruction_to_int_list (Codegen.instructions_of_expression ast))
+
+let is_typed ast =
+  match Types.either_type_of_expression ast with
+    | Right _ -> true
+    | Left _ -> false;;

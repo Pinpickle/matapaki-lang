@@ -19,11 +19,13 @@ let parse_with_error lexbuf =
 
 let rec parse_and_print lexbuf =
   match parse_with_error lexbuf with
-  | Some value ->
-    print_endline "Running";
+  | Some ast ->
     print_endline "Parsed AST";
-    print_endline (Pretty_print.pretty_print_ast_expression value);
-    print_endline (Compile.compile (value))
+    print_endline (Pretty_print.pretty_print_ast_expression ast);
+    if Compile.is_typed ast then
+      print_endline (Compile.compile (ast))
+    else 
+      print_endline "Type error";
   | None -> ()
 
 let loop filename () =
