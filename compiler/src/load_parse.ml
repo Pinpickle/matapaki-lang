@@ -21,7 +21,7 @@ let rec parse_and_print lexbuf =
   match parse_with_error lexbuf with
   | Some ast ->
     print_endline "Parsed AST";
-    print_endline (Pretty_print.pretty_print_ast_expression ast);
+    print_endline (Pretty_print.pretty_print_ast_program ast);
     if Compile.is_typed ast then
       print_endline (Compile.compile (ast))
     else 

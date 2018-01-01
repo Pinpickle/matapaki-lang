@@ -34,6 +34,11 @@ rule read =
   | "false" { BOOL false } 
   | "(" { LEFT_PAREN }
   | ")" { RIGHT_PAREN }
+  | "Int" { TINT }
+  | "Bool" { TBOOL }
+  | ":" { COLON }
+  | "->" { ARROW }
+  | "fun" { FUN }
   | identifier { IDENTIFIER (Lexing.lexeme lexbuf) }
   | _ { raise (SyntaxError ("Unexpected char: " ^ Lexing.lexeme lexbuf)) }
   | eof { EOF }

@@ -2,23 +2,38 @@
 %token RIGHT_PAREN
 %token <bool> BOOL
 %token <int> INT
+%token TINT
+%token TBOOL
 %token LET
 %token <string> IDENTIFIER
 %token EQUALS
 %token SEMICOLON
 %token EOF
+%token FUN
+%token COLON
+%token ARROW
 %token <Compiler_theory.Ast.astBinaryOperator> BINARY_OPERATOR
 
-%start <Compiler_theory.Ast.astExpression option> prog
+%start <unit Compiler_theory.Ast.ast_program_ext option> prog
 %%
 
-prog: expr = expression EOF { Some expr }
+prog: first_function = function_block; expr = expression EOF { Some (Compiler_theory.Ast.make_ast_program [first_function] expr) }
 
 expression:
   | LET; iden = IDENTIFIER; EQUALS; assignment = expression; SEMICOLON; inner = expression
     { Compiler_theory.Ast.LetBinding ((iden, assignment), inner) }
   | e = expression_with_operator
     { e }
+  ;
+
+function_block:
+  | FUN; name = IDENTIFIER; COLON; input_type = type_expr; ARROW; output_type = type_expr; argument_name = IDENTIFIER; EQUALS; body = expression;
+    { Compiler_theory.Ast.make_ast_function name argument_name input_type output_type body }
+  ;
+
+type_expr:
+  | TINT { Compiler_theory.Ast.TInt }
+  | TBOOL { Compiler_theory.Ast.TBool }
   ;
 
 expression_with_operator:

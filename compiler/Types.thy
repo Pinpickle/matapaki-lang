@@ -2,7 +2,6 @@ theory Types
   imports Main List String "./Ast"
 begin
 
-datatype astType = TInt | TBool
 type_synonym type_context = "(String.literal * astType) list"
 
 fun type_for_name_in_context :: "type_context \<Rightarrow> String.literal \<Rightarrow> astType option" where
@@ -45,5 +44,30 @@ fun either_type_of_expression :: "type_context \<Rightarrow> astExpression => (a
       Some type \<Rightarrow> Right type |
       None \<Rightarrow> Left ()
   )"
+
+fun either_type_of_function :: "type_context \<Rightarrow> ast_function_definition \<Rightarrow> (astType, unit) either" where
+  "either_type_of_function context definition = (
+    case (either_type_of_expression ((r_argument_name definition, r_argument_type definition) # context) (r_body definition)) of
+      Right body_type \<Rightarrow> (
+        if (body_type = (r_return_type definition)) then Right (r_return_type definition)
+        else Left ()
+      ) |
+      Left _ \<Rightarrow> Left ()
+    )
+  "
+
+fun context_of_functions :: "ast_function_definition list \<Rightarrow> type_context" where
+  "context_of_functions function_definitions = map (\<lambda>def. (r_function_name def, Function (r_argument_type def, r_return_type def))) function_definitions"
+
+fun either_type_of_program :: "ast_program \<Rightarrow> (astType, unit) either" where
+  "either_type_of_program program = (
+    let context = context_of_functions (r_defined_functions program) in (
+      if (find (\<lambda>fn. either_type_of_function context fn = Left ()) (r_defined_functions program)) = None then
+        either_type_of_expression context (r_main_expression program)
+      else Left ()
+    )
+  )
+  "
+
 
 end
