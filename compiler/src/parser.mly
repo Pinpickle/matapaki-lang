@@ -47,6 +47,8 @@ expression_with_value:
     { Compiler_theory.Ast.Value v }
   | LEFT_PAREN; e = expression; RIGHT_PAREN
     { e }
+  | name = IDENTIFIER; argument = expression;
+    { Compiler_theory.Ast.FunctionApplication (name, argument) }
   | iden = IDENTIFIER;
     { Compiler_theory.Ast.Variable iden }
   ;

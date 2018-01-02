@@ -43,7 +43,16 @@ fun either_type_of_expression :: "type_context \<Rightarrow> astExpression => (a
     case (type_for_name_in_context context name) of
       Some type \<Rightarrow> Right type |
       None \<Rightarrow> Left ()
-  )"
+  )" |
+  "either_type_of_expression context (FunctionApplication (name, argument)) = (
+    case (type_for_name_in_context context name) of
+      Some (Function (input_type, output_type)) \<Rightarrow> (
+        if (Right input_type = either_type_of_expression context argument) then Right output_type
+        else Left ()
+      ) |
+      None \<Rightarrow> Left ()
+    )
+  "
 
 fun either_type_of_function :: "type_context \<Rightarrow> ast_function_definition \<Rightarrow> (astType, unit) either" where
   "either_type_of_function context definition = (

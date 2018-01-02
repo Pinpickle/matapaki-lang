@@ -13,6 +13,7 @@ datatype astExpression
   | Value "astValue"
   | LetBinding "(String.literal * astExpression) * astExpression"
   | Variable "String.literal"
+  | FunctionApplication "String.literal * astExpression"
 
 record ast_function_definition =
   r_function_name :: String.literal

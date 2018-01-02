@@ -1,7 +1,5 @@
-fun testfun: Int -> Int x = (x + 1)
+fun testfun: Int -> Int x = testfun (x + 2)
 
-(
-  let y = 5;
-let x = 6;
-x + y
-) + 2
+let y = 5;
+let x = testfun (testfun y);
+x + y + 2

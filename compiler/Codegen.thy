@@ -9,6 +9,30 @@ record codegen_context =
   r_variable_locations :: variable_location_list
   r_program_functions :: "program_function list"
 
+definition NULL_POINTER_ADDRESS :: "nat" where 
+  "NULL_POINTER_ADDRESS = 0"
+
+definition RE_ENTRANCY_FLAG_ADDRESS :: "nat" where 
+  "RE_ENTRANCY_FLAG_ADDRESS = 32"
+
+definition NEXT_FREE_MEMORY_ADDRESS :: "nat" where 
+  "NEXT_FREE_MEMORY_ADDRESS = 64"
+
+definition FRAME_POINTER_ADDRESS :: "nat" where 
+  "FRAME_POINTER_ADDRESS = 96"
+
+definition INITIAL_INSTRUCTIONS_LENGTH :: "nat" where
+  "INITIAL_INSTRUCTIONS_LENGTH = 34"
+
+(*
+  Layout of memory during execution:
+  
+  0: Null pointer
+  1: Re-entrancy flag
+  2: Next available memory address (initialised to 4) 
+  3: Frame pointer
+*)
+
 fun number_to_words :: "int \<Rightarrow> 8 word list" where
   "number_to_words i = (word_rsplit (word_of_int i::256 word))"
 
@@ -18,6 +42,19 @@ fun offset_for_name_in_context :: "variable_location_list \<Rightarrow> String.l
     if (name = required_name) then location
     else offset_for_name_in_context rest required_name
   )"
+
+fun bytes_of_instructions :: "inst list \<Rightarrow> byte list" where
+  "bytes_of_instructions insts = List.concat (map inst_code insts)"
+
+fun location_of_function_name_in_functions :: "nat \<Rightarrow> program_function list \<Rightarrow> String.literal \<Rightarrow> nat" where
+  "location_of_function_name_in_functions offset [] _ = offset" |
+  "location_of_function_name_in_functions offset (checking_function # rest) name = (
+    if (r_function_name checking_function = name) then offset else
+    location_of_function_name_in_functions (offset + size (bytes_of_instructions (r_instructions checking_function))) rest name
+  )"
+
+fun location_of_function_name_in_context :: "codegen_context \<Rightarrow> String.literal \<Rightarrow> nat" where
+  "location_of_function_name_in_context context name = location_of_function_name_in_functions INITIAL_INSTRUCTIONS_LENGTH (r_program_functions context) name"
 
 fun bytes_of_value :: "astValue \<Rightarrow> 8 word list" where
   "bytes_of_value (Integer i) = number_to_words i" |
@@ -29,38 +66,18 @@ fun instructions_of_binary_operator :: "astBinaryOperator \<Rightarrow> inst lis
   "instructions_of_binary_operator Or = [Bits inst_OR]" |
   "instructions_of_binary_operator And = [Bits inst_AND]"
 
-definition NULL_POINTER_ADDRESS :: "nat" where 
-  "NULL_POINTER_ADDRESS = 0"
-
-definition RE_ENTRANCY_FLAG_ADDRESS :: "nat" where 
-  "RE_ENTRANCY_FLAG_ADDRESS = 16"
-
-definition NEXT_FREE_MEMORY_ADDRESS :: "nat" where 
-  "NEXT_FREE_MEMORY_ADDRESS = 32"
-
-definition FRAME_POINTER_ADDRESS :: "nat" where 
-  "FRAME_POINTER_ADDRESS = 48"
-
-(*
-  Layout of memory during execution:
-  
-  0: Null pointer
-  1: Re-entrancy flag
-  2: Next available memory address (initialised to 4) 
-  3: Frame pointer
-*)
-
 fun count_max_let_binding :: "astExpression \<Rightarrow> nat" where
   "count_max_let_binding (BinaryOperator (_, e1, e2)) = max (count_max_let_binding e1) (count_max_let_binding e2)" |
   "count_max_let_binding (Value _) = 0" |
   "count_max_let_binding (Variable _) = 0" |
-  "count_max_let_binding (LetBinding ((name, assignment), inner_expression)) = 1 + max (count_max_let_binding assignment) (count_max_let_binding inner_expression)"
+  "count_max_let_binding (LetBinding ((name, assignment), inner_expression)) = 1 + max (count_max_let_binding assignment) (count_max_let_binding inner_expression)" |
+  "count_max_let_binding (FunctionApplication (_, argument)) = count_max_let_binding argument"
 
 fun place_offset_from_stored_address :: "nat \<Rightarrow> nat \<Rightarrow> inst list" where
   "place_offset_from_stored_address address offset = [
     Stack (PUSH_N (number_to_words address)),
     Memory MLOAD,
-    Stack (PUSH_N (number_to_words offset)),
+    Stack (PUSH_N (number_to_words (offset))),
     Arith ADD
   ]"
 
@@ -72,7 +89,7 @@ fun instructions_of_expression :: "codegen_context \<Rightarrow> astExpression =
     (instructions_of_expression context e1) @ (instructions_of_expression context e2) @ instructions_of_binary_operator operator" |
   "instructions_of_expression _ (Value v) = [Stack (PUSH_N (bytes_of_value v))]" |
   "instructions_of_expression context (LetBinding ((name, assignment), inner_expression)) = (
-    let variable_offset = (max (count_max_let_binding assignment) (count_max_let_binding inner_expression)) * 16 in (
+    let variable_offset = (max (count_max_let_binding assignment) (count_max_let_binding inner_expression)) * 32 in (
       (* Place value on top of stack *)
       (instructions_of_expression context assignment) @
       (* Place address on top of stack *)
@@ -91,7 +108,39 @@ fun instructions_of_expression :: "codegen_context \<Rightarrow> astExpression =
     (place_offset_from_frame_pointer (offset_for_name_in_context (r_variable_locations context) name)) @
     (* Load from address *)
     [Memory MLOAD]
-  )"
+  )" |
+  "instructions_of_expression context (FunctionApplication (name, argument)) =  
+    (* Stack: argument, ... *)
+    instructions_of_expression context argument @
+    (* Stack: frame pointer, argument, ... *)
+    place_offset_from_frame_pointer 0 @ [
+      (* Stack: argument, frame pointer, ... *)
+      Swap 0,
+      (* Update frame pointer to be next free memory address *)
+      Stack (PUSH_N (number_to_words (NEXT_FREE_MEMORY_ADDRESS))),
+      Stack (PUSH_N (number_to_words (FRAME_POINTER_ADDRESS))),
+      Memory MLOAD,
+      Memory MSTORE,
+      (* Stack: function address, argument, frame pointer, ... *)
+      Stack (PUSH_N [word_of_int (location_of_function_name_in_context context name)]),
+      (* Stack: program counter, function address, argument, frame pointer, ... *)
+      Pc PC,
+      Stack (PUSH_N [7]),
+      (* Stack: return address, function address, argument, frame pointer, ... *)
+      Arith ADD,
+      (* Stack: argument, function address, return address, frame pointer, ... *)
+      Swap 1,
+      (* Stack: function address, argument, return address, frame pointer, ... *)
+      Swap 0,
+      Pc JUMP,
+      (* Stack: return value, frame pointer, *)
+      Pc JUMPDEST,
+      Swap 0,
+      Stack (PUSH_N (number_to_words FRAME_POINTER_ADDRESS)),
+      (* Stack: return value *)
+      Memory MSTORE
+    ]
+  "
 
 fun populate_function_with_instructions :: "codegen_context \<Rightarrow> program_function \<Rightarrow> program_function" where
   "populate_function_with_instructions context function = function\<lparr>
@@ -99,13 +148,13 @@ fun populate_function_with_instructions :: "codegen_context \<Rightarrow> progra
       Pc JUMPDEST
     ] @
       (* Make room for all let bindings in this function *)
-      place_offset_from_frame_pointer (argument_offset + 1) @ 
+      place_offset_from_frame_pointer ((argument_offset + 1) * 16) @ 
     [
       Stack (PUSH_N (number_to_words (NEXT_FREE_MEMORY_ADDRESS))),
       Memory MSTORE
     ] @
       (* Save argument as a variable *)
-      place_offset_from_frame_pointer argument_offset @ [
+      place_offset_from_frame_pointer (argument_offset * 16) @ [
       Memory MSTORE
     ] @
       (* Execute function body *)
@@ -120,9 +169,6 @@ fun populate_function_with_instructions :: "codegen_context \<Rightarrow> progra
     )
     )
   \<rparr>"
-
-fun bytes_of_instructions :: "inst list \<Rightarrow> byte list" where
-  "bytes_of_instructions insts = List.concat (map inst_code insts)"
 
 fun instructions_of_ast_functions :: "codegen_context \<Rightarrow> ast_function_definition list \<Rightarrow> inst list * codegen_context" where
   "instructions_of_ast_functions context ast_functions = (
@@ -149,10 +195,14 @@ fun instructions_of_ast_functions :: "codegen_context \<Rightarrow> ast_function
 
 fun instructions_of_program :: "ast_program \<Rightarrow> inst list" where
   "instructions_of_program program = (
-    let (instructions, context) = instructions_of_ast_functions \<lparr>r_variable_locations = [], r_program_functions = []\<rparr> (r_defined_functions program) in
+    let (instructions, context) = instructions_of_ast_functions \<lparr>r_variable_locations = [], r_program_functions = []\<rparr> (r_defined_functions program);
+        binding_offset = count_max_let_binding (r_main_expression program) in
       instructions @ [
         Stack (PUSH_N [(10 * 16)]),
         Stack (PUSH_N (number_to_words (FRAME_POINTER_ADDRESS))),
+        Memory MSTORE
+      ] @ place_offset_from_frame_pointer (binding_offset * 32) @ [
+        Stack (PUSH_N (number_to_words (NEXT_FREE_MEMORY_ADDRESS))),
         Memory MSTORE
       ] @ (
       instructions_of_expression 

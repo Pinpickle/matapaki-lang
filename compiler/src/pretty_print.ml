@@ -18,7 +18,8 @@ let rec pretty_print_ast_expression expression =
     | Ast.Value v -> pretty_print_value v
     | Ast.Variable name -> name
     | Ast.LetBinding ((name, assignment), inner_expression) ->
-      "let " ^ name ^ " = " ^ pretty_print_ast_expression assignment ^ ";\n" ^ pretty_print_ast_expression inner_expression;;
+      "let " ^ name ^ " = " ^ pretty_print_ast_expression assignment ^ ";\n" ^ pretty_print_ast_expression inner_expression
+    | Ast.FunctionApplication (name, argument) -> name ^ " (" ^ (pretty_print_ast_expression argument) ^ ")";;
 
 let rec pretty_print_ast_type ast_type =
   match ast_type with
