@@ -53,6 +53,12 @@ fun location_of_function_name_in_functions :: "nat \<Rightarrow> program_functio
     location_of_function_name_in_functions (offset + size (bytes_of_instructions (r_instructions checking_function))) rest name
   )"
 
+value "(implode ''oo'')::String.literal"
+value "location_of_function_name_in_functions 0 [
+  \<lparr>r_function_name = (implode ''aao'')::String.literal, r_argument_name = (implode ''doo'')::String.literal, r_argument_type = TInt, r_return_type = TInt, r_body = Value (Integer 5), r_instructions = [Push_N [5]]\<rparr>,
+  \<lparr>r_function_name = (implode ''foo'')::String.literal, r_argument_name = (implode ''doo'')::String.literal, r_argument_type = TInt, r_return_type = TInt, r_body = Value (Integer 5), r_instructions = [Push_N [5]]\<rparr>
+] (implode ''foo'')"
+
 fun location_of_function_name_in_context :: "codegen_context \<Rightarrow> String.literal \<Rightarrow> nat" where
   "location_of_function_name_in_context context name = location_of_function_name_in_functions INITIAL_INSTRUCTIONS_LENGTH (r_program_functions context) name"
 

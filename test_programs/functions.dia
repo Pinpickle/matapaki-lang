@@ -1,0 +1,8 @@
+fun testfun: Int -> Int x = (x + 2)
+fun untestfun: Int -> Int x = (x + 3)
+fun ununtestfun: Int -> Int x = (x + 7)
+(
+  let y = ununtestfun 5;
+  let x = testfun (untestfun 7);
+  x + y
+) + 2

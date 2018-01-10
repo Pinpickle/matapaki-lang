@@ -17,7 +17,7 @@
 %start <unit Compiler_theory.Ast.ast_program_ext option> prog
 %%
 
-prog: first_function = function_block; expr = expression EOF { Some (Compiler_theory.Ast.make_ast_program [first_function] expr) }
+prog: functions = function_list; expr = expression EOF { Some (Compiler_theory.Ast.make_ast_program functions expr) }
 
 expression:
   | LET; iden = IDENTIFIER; EQUALS; assignment = expression; SEMICOLON; inner = expression
@@ -30,6 +30,12 @@ function_block:
   | FUN; name = IDENTIFIER; COLON; input_type = type_expr; ARROW; output_type = type_expr; argument_name = IDENTIFIER; EQUALS; body = expression;
     { Compiler_theory.Ast.make_ast_function name argument_name input_type output_type body }
   ;
+
+function_list: functions = function_list_rev { List.rev functions }
+
+function_list_rev:
+  | { [] }
+  | function_def = function_block; rest = function_list_rev { function_def :: rest }
 
 type_expr:
   | TINT { Compiler_theory.Ast.TInt }
