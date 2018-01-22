@@ -6,6 +6,11 @@ contract SimpleToken {
 
   function SimpleToken() public {
     minter = msg.sender;
+    add(1, 2);
+  }
+
+  function add(uint something, uint somethingelse) private returns (uint) {
+    return something + somethingelse;
   }
 
   function mint(address owner, uint amount) public {
@@ -20,9 +25,9 @@ contract SimpleToken {
     if (balances[msg.sender] < amount) {
       return;
     }
-    balances
-      .set(msg.sender, balances.get(msg.sender) - amount)
-      .set(receiver, balances.get(receiver) + amount);
+
+    balances[msg.sender] -= amount;
+    balances[receiver] += amount;
   }
 
   function queryBalance(address addr) public constant returns (uint balance) {

@@ -8,6 +8,7 @@ record program_function = ast_function_definition +
 record codegen_context =
   r_variable_locations :: variable_location_list
   r_program_functions :: "program_function list"
+  r_program_type :: astType
 
 definition NULL_POINTER_ADDRESS :: "nat" where 
   "NULL_POINTER_ADDRESS = 0"
@@ -128,7 +129,7 @@ fun instructions_of_expression :: "codegen_context \<Rightarrow> astExpression =
       Memory MLOAD,
       Memory MSTORE,
       (* Stack: function address, argument, frame pointer, ... *)
-      Stack (PUSH_N [word_of_int (location_of_function_name_in_context context name)]),
+      Stack (PUSH_N (number_to_words (location_of_function_name_in_context context name))),
       (* Stack: program counter, function address, argument, frame pointer, ... *)
       Pc PC,
       Stack (PUSH_N [7]),
@@ -176,6 +177,12 @@ fun populate_function_with_instructions :: "codegen_context \<Rightarrow> progra
     )
   \<rparr>"
 
+fun instructions_of_program_context_functions :: "codegen_context \<Rightarrow> inst list" where
+  "instructions_of_program_context_functions context = List.concat (map r_instructions (r_program_functions context))"
+
+fun function_jump_location :: "inst list \<Rightarrow> nat" where
+  "function_jump_location function_instructions = (size (bytes_of_instructions function_instructions)) + 34"
+
 fun instructions_of_ast_functions :: "codegen_context \<Rightarrow> ast_function_definition list \<Rightarrow> inst list * codegen_context" where
   "instructions_of_ast_functions context ast_functions = (
     let 
@@ -188,20 +195,77 @@ fun instructions_of_ast_functions :: "codegen_context \<Rightarrow> ast_function
       final_context = context\<lparr>
         r_program_functions := map (populate_function_with_instructions context_with_instructions) (r_program_functions context_with_instructions)
       \<rparr>;
-      function_instructions = List.concat (map r_instructions (r_program_functions final_context)) in (
+      function_instructions = instructions_of_program_context_functions final_context in (
       [
-        Stack (PUSH_N (number_to_words ((size (bytes_of_instructions function_instructions)) + 34))),
+        Stack (PUSH_N (number_to_words (function_jump_location function_instructions))),
         Pc JUMP
       ] @ function_instructions @ [Pc JUMPDEST],
       final_context
     ))
   "
-      
-      
 
-fun instructions_of_program :: "ast_program \<Rightarrow> inst list" where
-  "instructions_of_program program = (
-    let (instructions, context) = instructions_of_ast_functions \<lparr>r_variable_locations = [], r_program_functions = []\<rparr> (r_defined_functions program);
+fun return_32_byte_value_on_stack :: "unit \<Rightarrow> inst list" where
+  "return_32_byte_value_on_stack _ =
+    place_offset_from_stored_address NEXT_FREE_MEMORY_ADDRESS 0 @ [
+      Memory MSTORE,
+      Stack (PUSH_N [32])
+    ] @ place_offset_from_stored_address NEXT_FREE_MEMORY_ADDRESS 0 @ [
+      Misc RETURN
+    ]"
+
+(* This function returns instructions that assumes there is a value
+   of the given type at the top of the stack. These instructions take
+   this value and returns it *)
+fun return_instructions_for_type :: "astType \<Rightarrow> inst list" where
+  "return_instructions_for_type TInt = return_32_byte_value_on_stack ()" |
+  "return_instructions_for_type TBool = return_32_byte_value_on_stack ()" |
+  "return_instructions_for_type _ = [] (* Other types are impossible in a well-typed program *)"
+
+(* Do we want this to be self-contained? Currently it depends on implementation details
+   of other parts of codegen. It could be made self contained by modifying its own code
+   instead of the instructions at the beginnning *)
+fun init_instructions_naive :: "codegen_context \<Rightarrow> nat \<Rightarrow> inst list" where
+  "init_instructions_naive context offset = [
+    (* [pre-marker pc] *)
+    Pc PC,
+    (* Push a marker to the stack, this will be overwritten in memory
+       [marker, pre-marker pc]*)
+    Stack (PUSH_N (number_to_words 0)),
+    (* [post-marker pc, marker, pre-marker pc] *)
+    Pc PC,
+    (* [destination - (post-marker pc), (post-marker pc), marker, pre-marker pc] *)
+    Stack (PUSH_N (number_to_words (offset - 36))),
+    (* [destination, marker, pre-marker pc] *)
+    Arith ADD,
+    (* Jump to JUMPDEST at the bottom of this section if marker is 1
+       [pre-marker pc] *)
+    Pc JUMPI,
+    (* Put existing code into memory  *)
+    Info CODESIZE,
+    Stack (PUSH_N [0]),
+    Stack (PUSH_N [0]),
+    Memory CODECOPY,
+    (* Then overwrite the marker at pre-marker pc + 3  *)
+    Stack (PUSH_N [2]),
+    Arith ADD,
+    Stack (PUSH_N [1]),
+    Swap 0,
+    Memory MSTORE,
+    (* Then return the data *)
+    Info CODESIZE,
+    Stack (PUSH_N [0]),
+    Misc RETURN,
+    (* Continue with execution if jumped to *)
+    Pc JUMPDEST,
+    Stack POP
+  ]"
+
+fun init_instructions :: "codegen_context \<Rightarrow> inst list" where
+  "init_instructions context = init_instructions_naive context (size (bytes_of_instructions (init_instructions_naive context 0)))"
+
+fun instructions_of_program :: "ast_program \<Rightarrow> astType  \<Rightarrow> inst list" where
+  "instructions_of_program program type = (
+    let (instructions, context) = instructions_of_ast_functions \<lparr>r_variable_locations = [], r_program_functions = [], r_program_type = type\<rparr> (r_defined_functions program);
         binding_offset = count_max_let_binding (r_main_expression program) in
       instructions @ [
         Stack (PUSH_N [(10 * 16)]),
@@ -210,11 +274,11 @@ fun instructions_of_program :: "ast_program \<Rightarrow> inst list" where
       ] @ place_offset_from_frame_pointer (binding_offset * 32) @ [
         Stack (PUSH_N (number_to_words (NEXT_FREE_MEMORY_ADDRESS))),
         Memory MSTORE
-      ] @ (
+      ] @ init_instructions context @ (
       instructions_of_expression 
         context
         (r_main_expression program)
-      )
+      ) @ return_instructions_for_type (r_program_type context)
    )"
 
 fun integers_of_instructions :: "inst list \<Rightarrow> int list" where
