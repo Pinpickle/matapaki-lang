@@ -1,1 +1,1 @@
-1
+export fun main: Unit -> Int arg = 1

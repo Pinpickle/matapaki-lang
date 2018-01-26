@@ -1,1 +1,1 @@
-true && false
+export fun main: Unit -> Bool arg = true && false

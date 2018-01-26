@@ -12,12 +12,16 @@
 %token FUN
 %token COLON
 %token ARROW
+%token EXPORT
+%token TUNIT
+%token RECORD_OPEN
+%token RECORD_CLOSE
 %token <Compiler_theory.Ast.astBinaryOperator> BINARY_OPERATOR
 
 %start <unit Compiler_theory.Ast.ast_program_ext option> prog
 %%
 
-prog: functions = function_list; expr = expression EOF { Some (Compiler_theory.Ast.make_ast_program functions expr) }
+prog: functions = function_list; EOF { Some (Compiler_theory.Ast.make_ast_program functions) }
 
 expression:
   | LET; iden = IDENTIFIER; EQUALS; assignment = expression; SEMICOLON; inner = expression
@@ -27,8 +31,8 @@ expression:
   ;
 
 function_block:
-  | FUN; name = IDENTIFIER; COLON; input_type = type_expr; ARROW; output_type = type_expr; argument_name = IDENTIFIER; EQUALS; body = expression;
-    { Compiler_theory.Ast.make_ast_function name argument_name input_type output_type body }
+  | export = EXPORT?; FUN; name = IDENTIFIER; COLON; input_type = type_expr; ARROW; output_type = type_expr; argument_name = IDENTIFIER; EQUALS; body = expression;
+    { Compiler_theory.Ast.make_ast_function name argument_name input_type output_type body (not (export = None)) }
   ;
 
 function_list: functions = function_list_rev { List.rev functions }
@@ -40,6 +44,7 @@ function_list_rev:
 type_expr:
   | TINT { Compiler_theory.Ast.TInt }
   | TBOOL { Compiler_theory.Ast.TBool }
+  | TUNIT { Compiler_theory.Ast.TUnit }
   ;
 
 expression_with_operator:
@@ -53,6 +58,7 @@ expression_with_value:
     { Compiler_theory.Ast.Value v }
   | LEFT_PAREN; e = expression; RIGHT_PAREN
     { e }
+  | RECORD_OPEN; RECORD_CLOSE { Compiler_theory.Ast.UnitLiteral }
   | name = IDENTIFIER; argument = expression;
     { Compiler_theory.Ast.FunctionApplication (name, argument) }
   | iden = IDENTIFIER;

@@ -18,30 +18,7 @@ function execPromised(...args) {
 }
 
 async function compile(pathname) {
-  const bytecode = (await execPromised(`./_build/default/compiler/src/main.exe ${pathname}`)).replace('\n', '');
-
-  return {
-    interface: [{
-      inputs: [],
-      payable: false,
-      stateMutability: 'nonpayable',
-      type: 'constructor'
-    }, {
-      inputs: [],
-      outputs: [
-        {
-          type: "uint256",
-          name: "blah"
-        },
-      ],
-      payable: false,
-      stateMutability: 'nonpayable',
-      type: 'function',
-      name: 'default',
-      signature: '0xadsda',
-    }],
-    bytecode,
-  };
+  return JSON.parse((await execPromised(`./_build/default/compiler/src/main.exe ${pathname}`)).replace('\n', ''));
 }
 
 module.exports = {

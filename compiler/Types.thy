@@ -3,6 +3,8 @@ theory Types
 begin
 
 type_synonym type_context = "(String.literal * astType) list"
+(* A program is a list of exported functions *)
+type_synonym program_type = "ast_function_definition list"
 
 fun type_for_name_in_context :: "type_context \<Rightarrow> String.literal \<Rightarrow> astType option" where
   "type_for_name_in_context [] _ = None" |
@@ -52,13 +54,14 @@ fun either_type_of_expression :: "type_context \<Rightarrow> astExpression => (a
       ) |
       None \<Rightarrow> Left ()
     )
-  "
+  " |
+  "either_type_of_expression context UnitLiteral = Right TUnit"
 
-fun either_type_of_function :: "type_context \<Rightarrow> ast_function_definition \<Rightarrow> (astType, unit) either" where
+fun either_type_of_function :: "type_context \<Rightarrow> ast_function_definition \<Rightarrow> (ast_function_definition, unit) either" where
   "either_type_of_function context definition = (
     case (either_type_of_expression ((r_argument_name definition, r_argument_type definition) # context) (r_body definition)) of
       Right body_type \<Rightarrow> (
-        if (body_type = (r_return_type definition)) then Right (r_return_type definition)
+        if (body_type = (r_return_type definition)) then Right (definition)
         else Left ()
       ) |
       Left _ \<Rightarrow> Left ()
@@ -68,11 +71,13 @@ fun either_type_of_function :: "type_context \<Rightarrow> ast_function_definiti
 fun context_of_functions :: "ast_function_definition list \<Rightarrow> type_context" where
   "context_of_functions function_definitions = map (\<lambda>def. (r_function_name def, Function (r_argument_type def, r_return_type def))) function_definitions"
 
-fun either_type_of_program :: "ast_program \<Rightarrow> (astType, unit) either" where
+fun either_type_of_program :: "ast_program \<Rightarrow> (program_type, unit) either" where
   "either_type_of_program program = (
-    let context = context_of_functions (r_defined_functions program) in (
-      if (find (\<lambda>fn. either_type_of_function context fn = Left ()) (r_defined_functions program)) = None then
-        either_type_of_expression context (r_main_expression program)
+    let context = context_of_functions (r_defined_functions program);
+        types = map (either_type_of_function context) (r_defined_functions program);
+        correct_types = List.map_filter (option_of_either) types in (
+      if (size types = size correct_types) then
+        Right (filter r_exported  correct_types)
       else Left ()
     )
   )

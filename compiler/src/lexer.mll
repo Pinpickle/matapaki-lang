@@ -31,11 +31,15 @@ rule read =
   | "||" { BINARY_OPERATOR Ast.Or }
   | "=" { EQUALS }
   | "true" { BOOL true }
-  | "false" { BOOL false } 
+  | "false" { BOOL false }
+  | "export" { EXPORT }
+  | "(|" { RECORD_OPEN }
+  | "|)" { RECORD_CLOSE }
   | "(" { LEFT_PAREN }
   | ")" { RIGHT_PAREN }
   | "Int" { TINT }
   | "Bool" { TBOOL }
+  | "Unit" { TUNIT }
   | ":" { COLON }
   | "->" { ARROW }
   | "fun" { FUN }

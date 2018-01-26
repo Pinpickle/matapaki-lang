@@ -19,20 +19,21 @@ let rec pretty_print_ast_expression expression =
     | Ast.Variable name -> name
     | Ast.LetBinding ((name, assignment), inner_expression) ->
       "let " ^ name ^ " = " ^ pretty_print_ast_expression assignment ^ ";\n" ^ pretty_print_ast_expression inner_expression
-    | Ast.FunctionApplication (name, argument) -> name ^ " (" ^ (pretty_print_ast_expression argument) ^ ")";;
+    | Ast.FunctionApplication (name, argument) -> name ^ " (" ^ (pretty_print_ast_expression argument) ^ ")"
+    | Ast.UnitLiteral -> "(| |)";;
 
 let rec pretty_print_ast_type ast_type =
   match ast_type with
     | Ast.TInt -> "Int"
     | Ast.TBool -> "Bool"
+    | Ast.TUnit -> "Unit"
     | Ast.Function (input, output) -> pretty_print_ast_type input ^ " -> " ^ pretty_print_ast_type output;;
 
 let pretty_print_ast_function function_block =
-  "fun " ^ Ast.r_function_name function_block ^ ": " ^
+  (if Ast.r_exported function_block then "export " else "") ^ "fun " ^ Ast.r_function_name function_block ^ ": " ^
   pretty_print_ast_type (Ast.r_argument_type function_block) ^ " -> " ^
   pretty_print_ast_type (Ast.r_return_type function_block) ^ " \n  " ^
   Ast.r_argument_name function_block ^ " = " ^ pretty_print_ast_expression (Ast.r_body function_block);;
 
 let pretty_print_ast_program program =
-  (String.concat "\n\n" (List.map pretty_print_ast_function (Ast.r_defined_functions program))) ^ "\n\n" ^ 
-  pretty_print_ast_expression (Ast.r_main_expression program)
+  (String.concat "\n\n" (List.map pretty_print_ast_function (Ast.r_defined_functions program)))

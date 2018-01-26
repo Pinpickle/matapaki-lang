@@ -1,5 +1,5 @@
 theory Codegen
-  imports Main List "./Ast" "~~/src/HOL/Library/Code_Target_Int" "./eth-isabelle/ContractSem" "./eth-isabelle/RelationalSem" "./eth-isabelle/ProgramInAvl"
+  imports Main List "./Ast" "~~/src/HOL/Library/Code_Target_Int" "./eth-isabelle/ContractSem" "./eth-isabelle/RelationalSem" "./eth-isabelle/ProgramInAvl" "./eth-isabelle/lem/Keccak"
 begin
 
 type_synonym variable_location_list = "(String.literal  * nat) list"
@@ -8,7 +8,6 @@ record program_function = ast_function_definition +
 record codegen_context =
   r_variable_locations :: variable_location_list
   r_program_functions :: "program_function list"
-  r_program_type :: astType
 
 definition NULL_POINTER_ADDRESS :: "nat" where 
   "NULL_POINTER_ADDRESS = 0"
@@ -24,6 +23,17 @@ definition FRAME_POINTER_ADDRESS :: "nat" where
 
 definition INITIAL_INSTRUCTIONS_LENGTH :: "nat" where
   "INITIAL_INSTRUCTIONS_LENGTH = 34"
+
+definition REVERT_INSTRUCTION :: "inst" where
+  "REVERT_INSTRUCTION = Unknown 253"
+
+definition REVERT_WITH_NO_DATA :: "inst list" where
+  "REVERT_WITH_NO_DATA = [Stack (PUSH_N [0]), Stack (PUSH_N [0]), REVERT_INSTRUCTION]"
+
+(* The NOT instruction flips every bit.
+   We only want to flip the first bit so 0 becomes 1 and vice versa.  *)
+definition BOOLEAN_NOT :: "inst list" where
+  "BOOLEAN_NOT = [Stack (PUSH_N [0]), Arith inst_EQ]"
 
 (*
   Layout of memory during execution:
@@ -54,12 +64,6 @@ fun location_of_function_name_in_functions :: "nat \<Rightarrow> program_functio
     location_of_function_name_in_functions (offset + size (bytes_of_instructions (r_instructions checking_function))) rest name
   )"
 
-value "(implode ''oo'')::String.literal"
-value "location_of_function_name_in_functions 0 [
-  \<lparr>r_function_name = (implode ''aao'')::String.literal, r_argument_name = (implode ''doo'')::String.literal, r_argument_type = TInt, r_return_type = TInt, r_body = Value (Integer 5), r_instructions = [Push_N [5]]\<rparr>,
-  \<lparr>r_function_name = (implode ''foo'')::String.literal, r_argument_name = (implode ''doo'')::String.literal, r_argument_type = TInt, r_return_type = TInt, r_body = Value (Integer 5), r_instructions = [Push_N [5]]\<rparr>
-] (implode ''foo'')"
-
 fun location_of_function_name_in_context :: "codegen_context \<Rightarrow> String.literal \<Rightarrow> nat" where
   "location_of_function_name_in_context context name = location_of_function_name_in_functions INITIAL_INSTRUCTIONS_LENGTH (r_program_functions context) name"
 
@@ -78,7 +82,8 @@ fun count_max_let_binding :: "astExpression \<Rightarrow> nat" where
   "count_max_let_binding (Value _) = 0" |
   "count_max_let_binding (Variable _) = 0" |
   "count_max_let_binding (LetBinding ((name, assignment), inner_expression)) = 1 + max (count_max_let_binding assignment) (count_max_let_binding inner_expression)" |
-  "count_max_let_binding (FunctionApplication (_, argument)) = count_max_let_binding argument"
+  "count_max_let_binding (FunctionApplication (_, argument)) = count_max_let_binding argument" |
+  "count_max_let_binding UnitLiteral = 0"
 
 fun place_offset_from_stored_address :: "nat \<Rightarrow> nat \<Rightarrow> inst list" where
   "place_offset_from_stored_address address offset = [
@@ -91,35 +96,9 @@ fun place_offset_from_stored_address :: "nat \<Rightarrow> nat \<Rightarrow> ins
 definition place_offset_from_frame_pointer :: "nat \<Rightarrow> inst list" where
   "place_offset_from_frame_pointer = place_offset_from_stored_address FRAME_POINTER_ADDRESS"
 
-fun instructions_of_expression :: "codegen_context \<Rightarrow> astExpression => inst list" where
-  "instructions_of_expression context (BinaryOperator (operator, e1, e2)) =
-    (instructions_of_expression context e1) @ (instructions_of_expression context e2) @ instructions_of_binary_operator operator" |
-  "instructions_of_expression _ (Value v) = [Stack (PUSH_N (bytes_of_value v))]" |
-  "instructions_of_expression context (LetBinding ((name, assignment), inner_expression)) = (
-    let variable_offset = (max (count_max_let_binding assignment) (count_max_let_binding inner_expression)) * 32 in (
-      (* Place value on top of stack *)
-      (instructions_of_expression context assignment) @
-      (* Place address on top of stack *)
-      (place_offset_from_frame_pointer variable_offset) @
-      (* Save the value to the address *)
-      [Memory MSTORE] @
-      (* Continue with execution *)
-      (instructions_of_expression 
-        (context\<lparr>r_variable_locations := ((name, variable_offset) # (r_variable_locations context))\<rparr>) 
-        inner_expression
-      ) 
-    )
-  )" |
-  "instructions_of_expression context (Variable name) = (
-    (* Place address on top of stack *)
-    (place_offset_from_frame_pointer (offset_for_name_in_context (r_variable_locations context) name)) @
-    (* Load from address *)
-    [Memory MLOAD]
-  )" |
-  "instructions_of_expression context (FunctionApplication (name, argument)) =  
-    (* Stack: argument, ... *)
-    instructions_of_expression context argument @
-    (* Stack: frame pointer, argument, ... *)
+(* Assumes the argument to the function is on the top of the stack *)
+fun instructions_to_call_function_of_name :: "codegen_context \<Rightarrow> String.literal \<Rightarrow> inst list" where
+  "instructions_to_call_function_of_name context name = (* Stack: frame pointer, argument, ... *)
     place_offset_from_frame_pointer 0 @ [
       (* Stack: argument, frame pointer, ... *)
       Swap 0,
@@ -146,7 +125,37 @@ fun instructions_of_expression :: "codegen_context \<Rightarrow> astExpression =
       Stack (PUSH_N (number_to_words FRAME_POINTER_ADDRESS)),
       (* Stack: return value *)
       Memory MSTORE
-    ]
+    ]"
+
+fun instructions_of_expression :: "codegen_context \<Rightarrow> astExpression => inst list" where
+  "instructions_of_expression context (BinaryOperator (operator, e1, e2)) =
+    (instructions_of_expression context e1) @ (instructions_of_expression context e2) @ instructions_of_binary_operator operator" |
+  "instructions_of_expression _ (Value v) = [Stack (PUSH_N (bytes_of_value v))]" |
+  "instructions_of_expression context (LetBinding ((name, assignment), inner_expression)) = (
+    let variable_offset = (max (count_max_let_binding assignment) (count_max_let_binding inner_expression)) * 32 in (
+      (* Place value on top of stack *)
+      (instructions_of_expression context assignment) @
+      (* Place address on top of stack *)
+      (place_offset_from_frame_pointer variable_offset) @
+      (* Save the value to the address *)
+      [Memory MSTORE] @
+      (* Continue with execution *)
+      (instructions_of_expression 
+        (context\<lparr>r_variable_locations := ((name, variable_offset) # (r_variable_locations context))\<rparr>) 
+        inner_expression
+      ) 
+    )
+  )" |
+  "instructions_of_expression context (Variable name) = (
+    (* Place address on top of stack *)
+    (place_offset_from_frame_pointer (offset_for_name_in_context (r_variable_locations context) name)) @
+    (* Load from address *)
+    [Memory MLOAD]
+  )" |
+  "instructions_of_expression context UnitLiteral = [Stack (PUSH_N [0])]" |
+  "instructions_of_expression context (FunctionApplication (name, argument)) =  
+    (instructions_of_expression context argument) @
+    (instructions_to_call_function_of_name context name)
   "
 
 fun populate_function_with_instructions :: "codegen_context \<Rightarrow> program_function \<Rightarrow> program_function" where
@@ -213,17 +222,95 @@ fun return_32_byte_value_on_stack :: "unit \<Rightarrow> inst list" where
       Misc RETURN
     ]"
 
+fun name_of_type :: "astType \<Rightarrow> String.literal" where
+  "name_of_type TInt = String.implode ''int256''" |
+  "name_of_type TBool = String.implode ''bool''" |
+  "name_of_type TUnit = String.implode ''''" |
+  "name_of_type _ = String.implode ''''"
+
+fun function_string_representation :: "String.literal \<Rightarrow> astType \<Rightarrow> astType \<Rightarrow> string" where
+  "function_string_representation name input_type output_type = List.concat [
+    String.explode name,
+    ''('',
+    String.explode (name_of_type input_type),
+    '')''
+  ]"
+
+fun function_signature :: "String.literal \<Rightarrow> astType \<Rightarrow> astType \<Rightarrow> byte list" where
+  "function_signature name input_type output_type = take 4 (word_rsplit (keccak (map (\<lambda>c. word_of_int (nat_of_char c)) (function_string_representation name input_type output_type))))"
+
 (* This function returns instructions that assumes there is a value
    of the given type at the top of the stack. These instructions take
    this value and returns it *)
 fun return_instructions_for_type :: "astType \<Rightarrow> inst list" where
   "return_instructions_for_type TInt = return_32_byte_value_on_stack ()" |
   "return_instructions_for_type TBool = return_32_byte_value_on_stack ()" |
-  "return_instructions_for_type _ = [] (* Other types are impossible in a well-typed program *)"
+  "return_instructions_for_type TUnit = [Misc STOP]" |
+  "return_instructions_for_type _ = REVERT_WITH_NO_DATA (* Other types are impossible in a well-typed program *)"
 
-(* Do we want this to be self-contained? Currently it depends on implementation details
-   of other parts of codegen. It could be made self contained by modifying its own code
-   instead of the instructions at the beginnning *)
+fun extract_type_from_call_data :: "astType \<Rightarrow> inst list" where
+  "extract_type_from_call_data TInt = [
+    Stack (PUSH_N [4]),
+    Stack CALLDATALOAD
+  ]" |
+  "extract_type_from_call_data TBool = [
+    Stack (PUSH_N [4]),
+    Stack CALLDATALOAD
+  ]" |
+  "extract_type_from_call_data TUnit = [
+    Stack (PUSH_N [0])
+  ]" |
+  "extract_type_from_call_data _ = REVERT_WITH_NO_DATA"
+
+(* Assumes the function signature is at the top of the stack *)
+fun check_and_execute_function :: "codegen_context \<Rightarrow> program_function \<Rightarrow> inst list" where
+  "check_and_execute_function context function = (
+    let init_instructions = [
+      (* [function signature, ...] *)
+      Dup 0,
+      (* [function signature, input function signature, ...] *)
+      Stack (PUSH_N (function_signature (r_function_name function) (r_argument_type function) (r_return_type function))),
+      (* [is signature equal, ...] *)
+      Arith inst_EQ
+      (* [is signature not equal, ...] *)
+    ] @ BOOLEAN_NOT;
+      (* [distance, is signature not equal, ...]
+      Stack (PUSH_N distance_to_continuation) *)
+      call_instructions = [
+      (* [pc, distance, is signature not equal, ...] *)
+      Pc PC,
+    (* [continuation location, is signature not equal, ...] *)
+    Arith ADD,
+    (* [...] *)
+    Pc JUMPI] @
+    (* [argument, ...] *)
+    extract_type_from_call_data (r_argument_type function) @
+    instructions_to_call_function_of_name context (r_function_name function) @
+    return_instructions_for_type (r_return_type function) in (
+      init_instructions @ [
+      Stack (PUSH_N (number_to_words (size (bytes_of_instructions call_instructions))))
+      ] @ call_instructions @ [
+        Pc JUMPDEST
+      ])
+    )
+  "
+
+fun functions_to_selection_instruction :: "codegen_context \<Rightarrow> program_function list \<Rightarrow> inst list" where
+  "functions_to_selection_instruction context functions = [
+    Stack (PUSH_N [0]),
+    Stack CALLDATALOAD,
+    (* From Solidity source *)
+    Stack (PUSH_N [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
+    Swap 0,
+    Arith DIV,
+    Stack (PUSH_N [255, 255, 255, 255]),
+    Bits inst_AND
+  ] @ List.concat (map (check_and_execute_function context) functions) @ [
+    Stack (PUSH_N [0]),
+    Stack (PUSH_N [0]),
+    REVERT_INSTRUCTION
+  ]"
+    
 fun init_instructions_naive :: "codegen_context \<Rightarrow> nat \<Rightarrow> inst list" where
   "init_instructions_naive context offset = [
     (* [pre-marker pc] *)
@@ -263,22 +350,18 @@ fun init_instructions_naive :: "codegen_context \<Rightarrow> nat \<Rightarrow> 
 fun init_instructions :: "codegen_context \<Rightarrow> inst list" where
   "init_instructions context = init_instructions_naive context (size (bytes_of_instructions (init_instructions_naive context 0)))"
 
-fun instructions_of_program :: "ast_program \<Rightarrow> astType  \<Rightarrow> inst list" where
-  "instructions_of_program program type = (
-    let (instructions, context) = instructions_of_ast_functions \<lparr>r_variable_locations = [], r_program_functions = [], r_program_type = type\<rparr> (r_defined_functions program);
-        binding_offset = count_max_let_binding (r_main_expression program) in
+fun instructions_of_program :: "ast_program \<Rightarrow> inst list" where
+  "instructions_of_program program = (
+    let (instructions, context) = instructions_of_ast_functions \<lparr>r_variable_locations = [], r_program_functions = []\<rparr> (r_defined_functions program) in
       instructions @ [
         Stack (PUSH_N [(10 * 16)]),
         Stack (PUSH_N (number_to_words (FRAME_POINTER_ADDRESS))),
         Memory MSTORE
-      ] @ place_offset_from_frame_pointer (binding_offset * 32) @ [
-        Stack (PUSH_N (number_to_words (NEXT_FREE_MEMORY_ADDRESS))),
-        Memory MSTORE
       ] @ init_instructions context @ (
-      instructions_of_expression 
+      functions_to_selection_instruction 
         context
-        (r_main_expression program)
-      ) @ return_instructions_for_type (r_program_type context)
+        (filter (r_exported) (r_program_functions context))
+      )
    )"
 
 fun integers_of_instructions :: "inst list \<Rightarrow> int list" where

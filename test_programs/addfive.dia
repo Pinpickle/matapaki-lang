@@ -1,0 +1,1 @@
+export fun addfive: Int -> Int num = num + 5
