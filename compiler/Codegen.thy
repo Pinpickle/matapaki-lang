@@ -104,8 +104,8 @@ fun instructions_to_call_function_of_name :: "codegen_context \<Rightarrow> Stri
       Swap 0,
       (* Update frame pointer to be next free memory address *)
       Stack (PUSH_N (number_to_words (NEXT_FREE_MEMORY_ADDRESS))),
-      Stack (PUSH_N (number_to_words (FRAME_POINTER_ADDRESS))),
       Memory MLOAD,
+      Stack (PUSH_N (number_to_words (FRAME_POINTER_ADDRESS))),
       Memory MSTORE,
       (* Stack: function address, argument, frame pointer, ... *)
       Stack (PUSH_N (number_to_words (location_of_function_name_in_context context name))),
@@ -148,7 +148,7 @@ fun instructions_of_expression :: "codegen_context \<Rightarrow> astExpression =
   )" |
   "instructions_of_expression context (Variable name) = (
     (* Place address on top of stack *)
-    (place_offset_from_frame_pointer (offset_for_name_in_context (r_variable_locations context) name)) @
+    (place_offset_from_frame_pointer ((offset_for_name_in_context (r_variable_locations context) name) * 32)) @
     (* Load from address *)
     [Memory MLOAD]
   )" |
@@ -164,13 +164,13 @@ fun populate_function_with_instructions :: "codegen_context \<Rightarrow> progra
       Pc JUMPDEST
     ] @
       (* Make room for all let bindings in this function *)
-      place_offset_from_frame_pointer ((argument_offset + 1) * 16) @ 
+      place_offset_from_frame_pointer ((argument_offset + 1) * 32) @ 
     [
       Stack (PUSH_N (number_to_words (NEXT_FREE_MEMORY_ADDRESS))),
       Memory MSTORE
     ] @
       (* Save argument as a variable *)
-      place_offset_from_frame_pointer (argument_offset * 16) @ [
+      place_offset_from_frame_pointer (argument_offset * 32) @ [
       Memory MSTORE
     ] @
       (* Execute function body *)
@@ -266,24 +266,26 @@ fun extract_type_from_call_data :: "astType \<Rightarrow> inst list" where
 fun check_and_execute_function :: "codegen_context \<Rightarrow> program_function \<Rightarrow> inst list" where
   "check_and_execute_function context function = (
     let init_instructions = [
-      (* [function signature, ...] *)
+      (* [input function signature * 2, ...] *)
       Dup 0,
-      (* [function signature, input function signature, ...] *)
+      (* [function signature, input function signature * 2, ...] *)
       Stack (PUSH_N (function_signature (r_function_name function) (r_argument_type function) (r_return_type function))),
-      (* [is signature equal, ...] *)
+      (* [is signature equal, input function signature, ...] *)
       Arith inst_EQ
-      (* [is signature not equal, ...] *)
+      (* [is signature not equal, input function signature, ...] *)
     ] @ BOOLEAN_NOT;
-      (* [distance, is signature not equal, ...]
+      (* [distance, is signature not equal, input function signature, ...]
       Stack (PUSH_N distance_to_continuation) *)
       call_instructions = [
-      (* [pc, distance, is signature not equal, ...] *)
+      (* [pc, distance, is signature not equal, input function signature, ...] *)
       Pc PC,
-    (* [continuation location, is signature not equal, ...] *)
+    (* [continuation location, is signature not equal, input function signature, ...] *)
     Arith ADD,
+    (* [input function signature, ...] *)
+    Pc JUMPI,
     (* [...] *)
-    Pc JUMPI] @
-    (* [argument, ...] *)
+    Stack POP] @
+    (* [argument, input function signature, ...] *)
     extract_type_from_call_data (r_argument_type function) @
     instructions_to_call_function_of_name context (r_function_name function) @
     return_instructions_for_type (r_return_type function) in (
@@ -355,6 +357,9 @@ fun instructions_of_program :: "ast_program \<Rightarrow> inst list" where
     let (instructions, context) = instructions_of_ast_functions \<lparr>r_variable_locations = [], r_program_functions = []\<rparr> (r_defined_functions program) in
       instructions @ [
         Stack (PUSH_N [(10 * 16)]),
+        Stack (PUSH_N [(10 * 16)]),
+        Stack (PUSH_N (number_to_words (NEXT_FREE_MEMORY_ADDRESS))),
+        Memory MSTORE,
         Stack (PUSH_N (number_to_words (FRAME_POINTER_ADDRESS))),
         Memory MSTORE
       ] @ init_instructions context @ (
