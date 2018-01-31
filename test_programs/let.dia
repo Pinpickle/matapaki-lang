@@ -1,4 +1,0 @@
-export fun main: Unit -> Int arg =
-  let y = 5;
-  let x = y + 5;
-  x + y + 2

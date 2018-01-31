@@ -1,0 +1,4 @@
+export fun operator_presedence: Unit -> Int arg = 10 + 1000 - 20 + 33 - (40 + 2)
+export fun addition: Unit -> Int arg = 10 + 5
+export fun subtraction: Unit -> Int arg = 10 - 5
+export fun complicated: Unit -> Int arg = (10 + 15) + (10 - 13) + 33

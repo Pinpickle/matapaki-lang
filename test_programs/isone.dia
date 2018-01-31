@@ -1,1 +1,0 @@
-export fun isone: Bool -> Bool x = x && true

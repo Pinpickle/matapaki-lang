@@ -1,0 +1,11 @@
+export fun single_let_binding: Unit -> Int
+  arg =
+    let x = 5;
+    x + 1
+
+export fun multiple_let_bindings: Unit -> Int
+  arg =
+    let x = 5;
+    let y = 6;
+    let z = x + y;
+    z + x + 5

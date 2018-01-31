@@ -1,11 +1,11 @@
-const compileSolidity = require('./compile-solidity');
+/*const compileSolidity = require('./compile-solidity');
 const blockchain = require('./blockchain');
 
 async function main() {
   const client = blockchain.createBlockchainClient();
   const coinbase = await client.eth.getCoinbase();
   
-  const simpleTokenCode = await compileSolidity.compile('./corpus/solidity/SimpleToken.sol', 'SimpleToken');
+  const simpleTokenCode = await compileSolidity.compile({ pathName: './corpus/solidity/SimpleToken.sol', contractName: 'SimpleToken' });
   const simpleTokenContract = new client.eth.Contract(simpleTokenCode.interface);
   const deployedContract = await simpleTokenContract
     .deploy({ data: simpleTokenCode.bytecode, arguments: [] })
@@ -19,4 +19,4 @@ async function main() {
   console.log(await client.eth.getBalance(coinbase));
 }
 
-main().then(console.log, console.error);
+main().then(console.log, console.error);*/

@@ -1,0 +1,12 @@
+{
+  "name": "ethereum-new-language",
+  "version": "0.0.0",
+  "main": ".",
+  "repository": "https://github.com/Pinpickle/ethereum-new-language.git",
+  "author": "Christian Silver",
+  "license": "MIT",
+  "scripts": {
+    "test": "ava testing/unit",
+    "build": "jbuilder build ./compiler/src/main.exe"
+  }
+}

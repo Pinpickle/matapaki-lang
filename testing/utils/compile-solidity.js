@@ -4,8 +4,8 @@ const solc = require('solc');
 
 const readFile = util.promisify(fs.readFile);
 
-async function compile(pathname, contractName) {
-  const file = await readFile(pathname, 'utf8');
+async function compile({ pathName, contractName }) {
+  const file = await readFile(pathName, 'utf8');
 
   // Compile contracts are stored in an object with keys ":ContractName"
   // So we need to extract that first

@@ -1,0 +1,4 @@
+export fun fun_1: Unit -> Int arg = 1
+export fun fun_2: Unit -> Int arg = 1
+export fun fun_3: Unit -> Int arg = 1
+fun not_exported: Unit -> Int arg = 1

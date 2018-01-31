@@ -17,8 +17,8 @@ function execPromised(...args) {
   });
 }
 
-async function compile(pathname) {
-  return JSON.parse((await execPromised(`./_build/default/compiler/src/main.exe ${pathname}`)).replace('\n', ''));
+async function compile({ pathName }) {
+  return JSON.parse((await execPromised(`./_build/default/compiler/src/main.exe ${pathName}`)).replace('\n', ''));
 }
 
 module.exports = {

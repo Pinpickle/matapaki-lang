@@ -73,7 +73,7 @@ fun bytes_of_value :: "astValue \<Rightarrow> 8 word list" where
 
 fun instructions_of_binary_operator :: "astBinaryOperator \<Rightarrow> inst list" where
   "instructions_of_binary_operator Plus = [Arith ADD]" |
-  "instructions_of_binary_operator Minus = [Arith SUB]" |
+  "instructions_of_binary_operator Minus = [Swap 0, Arith SUB]" |
   "instructions_of_binary_operator Or = [Bits inst_OR]" |
   "instructions_of_binary_operator And = [Bits inst_AND]"
 
@@ -148,7 +148,7 @@ fun instructions_of_expression :: "codegen_context \<Rightarrow> astExpression =
   )" |
   "instructions_of_expression context (Variable name) = (
     (* Place address on top of stack *)
-    (place_offset_from_frame_pointer ((offset_for_name_in_context (r_variable_locations context) name) * 32)) @
+    (place_offset_from_frame_pointer (offset_for_name_in_context (r_variable_locations context) name)) @
     (* Load from address *)
     [Memory MLOAD]
   )" |
@@ -160,17 +160,17 @@ fun instructions_of_expression :: "codegen_context \<Rightarrow> astExpression =
 
 fun populate_function_with_instructions :: "codegen_context \<Rightarrow> program_function \<Rightarrow> program_function" where
   "populate_function_with_instructions context function = function\<lparr>
-    r_instructions := (let argument_offset = count_max_let_binding (r_body function) in ([
+    r_instructions := (let argument_offset = (count_max_let_binding (r_body function)) * 32 in ([
       Pc JUMPDEST
     ] @
       (* Make room for all let bindings in this function *)
-      place_offset_from_frame_pointer ((argument_offset + 1) * 32) @ 
+      place_offset_from_frame_pointer (argument_offset + 32) @ 
     [
       Stack (PUSH_N (number_to_words (NEXT_FREE_MEMORY_ADDRESS))),
       Memory MSTORE
     ] @
       (* Save argument as a variable *)
-      place_offset_from_frame_pointer (argument_offset * 32) @ [
+      place_offset_from_frame_pointer argument_offset @ [
       Memory MSTORE
     ] @
       (* Execute function body *)
