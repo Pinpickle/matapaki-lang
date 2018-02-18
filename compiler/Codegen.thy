@@ -127,6 +127,63 @@ fun instructions_to_call_function_of_name :: "codegen_context \<Rightarrow> Stri
       Memory MSTORE
     ]"
 
+fun create_record :: "(nat * inst list) list \<Rightarrow> inst list" where
+  "create_record values =
+    [
+      (* First reserve the memory we need for this record*)
+      (* [Next free address pointer] *)
+      Stack (PUSH_N (number_to_words (NEXT_FREE_MEMORY_ADDRESS))),
+      (* [free address] *)
+      Memory MLOAD,
+      (* [free address, free address] *)
+      Dup 0,
+      (* [record size, free address, free address] *)
+      Stack (PUSH_N (number_to_words (32 + length (values) * 40))),
+      (* [new free address, free address] *)
+      Arith ADD,
+      (* [free address pointer, new free address, free address] *)
+      Stack (PUSH_N (number_to_words (NEXT_FREE_MEMORY_ADDRESS))),
+      (* [free address] *)
+      Memory MSTORE
+    ] @ List.concat (map (\<lambda>(i, instructions). [
+      (* [free address, free address] *)
+      Dup 0
+      (* [value, free address, free address] *)
+    ] @ instructions @ [
+      (* [free address, value, free address] *)
+      Swap 0,
+      (* [record offset, free address, value, free address] *)
+      Stack (PUSH_N (number_to_words (i * 40 + 32))),
+      (* [value address, value, free address] *)
+      Arith ADD,
+      (* [value address, value address, value, free address] *)
+      Dup 0,
+      (* [true (byte), value address, value address, value, free address] *)
+      Stack (PUSH_N [1]),
+      (* [value address, true (byte), value address, value, free address] *)
+      Swap 0,
+      (* [value address, value, free address] *)
+      Memory MSTORE,
+      (* [8, value address, value, free address] *)
+      Stack (PUSH_N [8]),
+      (* [value address, value, free address] *)
+      Arith ADD,
+      (* [free address] *)
+      Memory MSTORE
+    ]) values)"
+
+fun access_record :: "inst list \<Rightarrow> nat \<Rightarrow> inst list" where
+  "access_record instructions i = 
+  (* [record address] *)
+  instructions @ [
+    (* [value offset, record address] *)
+    Stack (PUSH_N (number_to_words (i * 40 + 32 + 8))),
+    (* [value location] *)
+    Arith ADD,
+    (* [value] *)
+    Memory MLOAD
+  ]"
+
 fun instructions_of_expression :: "codegen_context \<Rightarrow> astExpression => inst list" where
   "instructions_of_expression context (BinaryOperator (operator, e1, e2)) =
     (instructions_of_expression context e1) @ (instructions_of_expression context e2) @ instructions_of_binary_operator operator" |
@@ -152,11 +209,21 @@ fun instructions_of_expression :: "codegen_context \<Rightarrow> astExpression =
     (* Load from address *)
     [Memory MLOAD]
   )" |
-  "instructions_of_expression context UnitLiteral = [Stack (PUSH_N [0])]" |
   "instructions_of_expression context (FunctionApplication (name, argument)) =  
     (instructions_of_expression context argument) @
     (instructions_to_call_function_of_name context name)
-  "
+  " |
+  "instructions_of_expression context (RecordLiteral (values)) =
+    create_record (
+      map
+        (\<lambda>(i, (_, expression)). (i, instructions_of_expression context expression)) 
+        values
+    )" |
+  "instructions_of_expression context (RecordAccess (expression, name, names)) = (
+      case List.find (\<lambda>(i, value_name). value_name = name) names of
+        Some (i, _) \<Rightarrow> access_record (instructions_of_expression context expression) i|
+        None \<Rightarrow> REVERT_WITH_NO_DATA
+    )"
 
 fun populate_function_with_instructions :: "codegen_context \<Rightarrow> program_function \<Rightarrow> program_function" where
   "populate_function_with_instructions context function = function\<lparr>
@@ -222,17 +289,22 @@ fun return_32_byte_value_on_stack :: "unit \<Rightarrow> inst list" where
       Misc RETURN
     ]"
 
+fun name_of_type_string :: "astType \<Rightarrow> string" where
+  "name_of_type_string TInt = ''int256''" |
+  "name_of_type_string TBool = ''bool''" |
+  "name_of_type_string (TRecord []) = ''''" |
+  "name_of_type_string (TRecord [(_, (_, record_type))]) = name_of_type_string record_type" |
+  "name_of_type_string (TRecord ((_, (_, record_type)) # vals)) = List.concat [name_of_type_string record_type, '','',  name_of_type_string (TRecord vals)]" |
+  "name_of_type_string _ = ''''"
+
 fun name_of_type :: "astType \<Rightarrow> String.literal" where
-  "name_of_type TInt = String.implode ''int256''" |
-  "name_of_type TBool = String.implode ''bool''" |
-  "name_of_type TUnit = String.implode ''''" |
-  "name_of_type _ = String.implode ''''"
+  "name_of_type type = String.implode (name_of_type_string type)"
 
 fun function_string_representation :: "String.literal \<Rightarrow> astType \<Rightarrow> astType \<Rightarrow> string" where
   "function_string_representation name input_type output_type = List.concat [
     String.explode name,
     ''('',
-    String.explode (name_of_type input_type),
+    (name_of_type_string input_type),
     '')''
   ]"
 
@@ -245,7 +317,28 @@ fun function_signature :: "String.literal \<Rightarrow> astType \<Rightarrow> as
 fun return_instructions_for_type :: "astType \<Rightarrow> inst list" where
   "return_instructions_for_type TInt = return_32_byte_value_on_stack ()" |
   "return_instructions_for_type TBool = return_32_byte_value_on_stack ()" |
-  "return_instructions_for_type TUnit = [Misc STOP]" |
+  "return_instructions_for_type (TRecord values) = [
+    (* [free address pointer, return record] *)
+    Stack (PUSH_N (number_to_words NEXT_FREE_MEMORY_ADDRESS)),
+    (* [free address, record] *)
+    Memory MLOAD
+  ] @ List.concat (map (\<lambda>(i, _).
+    (* [value, free address, record] *)
+    (access_record [Dup 1] i) @  [
+      (* [free address, value, free address, record] *)
+      Dup 1,
+      (* [return offset, free address, value, free address, record] *)
+      Stack (PUSH_N (number_to_words (i * 32))),
+      (* [return address, value, free address, record] *)
+      Arith ADD,
+      (* [free address, record] *)
+      Memory MSTORE
+    ]
+  ) values) @ [
+    Stack (PUSH_N (number_to_words ((length values) * 32))),
+    Swap 0,
+    Misc RETURN
+  ]"|
   "return_instructions_for_type _ = REVERT_WITH_NO_DATA (* Other types are impossible in a well-typed program *)"
 
 fun extract_type_from_call_data :: "astType \<Rightarrow> inst list" where
@@ -257,9 +350,12 @@ fun extract_type_from_call_data :: "astType \<Rightarrow> inst list" where
     Stack (PUSH_N [4]),
     Stack CALLDATALOAD
   ]" |
-  "extract_type_from_call_data TUnit = [
-    Stack (PUSH_N [0])
-  ]" |
+  "extract_type_from_call_data (TRecord values) =
+    create_record (
+      map
+        (\<lambda>(i, (_, expression)). (i, [Stack (PUSH_N (number_to_words (i * 32 + 4))), Stack CALLDATALOAD])) 
+        values
+    )" |
   "extract_type_from_call_data _ = REVERT_WITH_NO_DATA"
 
 (* Assumes the function signature is at the top of the stack *)
@@ -352,7 +448,7 @@ fun init_instructions_naive :: "codegen_context \<Rightarrow> nat \<Rightarrow> 
 fun init_instructions :: "codegen_context \<Rightarrow> inst list" where
   "init_instructions context = init_instructions_naive context (size (bytes_of_instructions (init_instructions_naive context 0)))"
 
-fun instructions_of_program :: "ast_program \<Rightarrow> inst list" where
+fun instructions_of_program :: "typed_program \<Rightarrow> inst list" where
   "instructions_of_program program = (
     let (instructions, context) = instructions_of_ast_functions \<lparr>r_variable_locations = [], r_program_functions = []\<rparr> (r_defined_functions program) in
       instructions @ [

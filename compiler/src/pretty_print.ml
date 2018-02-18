@@ -20,13 +20,15 @@ let rec pretty_print_ast_expression expression =
     | Ast.LetBinding ((name, assignment), inner_expression) ->
       "let " ^ name ^ " = " ^ pretty_print_ast_expression assignment ^ ";\n" ^ pretty_print_ast_expression inner_expression
     | Ast.FunctionApplication (name, argument) -> name ^ " (" ^ (pretty_print_ast_expression argument) ^ ")"
-    | Ast.UnitLiteral -> "(| |)";;
+    | Ast.RecordLiteral (values) -> "{" ^ String.concat ",\n" (List.map (fun (_, (name, expression)) -> name ^ " = " ^ pretty_print_ast_expression expression) values)
+    | Ast.RecordAccess (expression, (name, _)) -> "(" ^ pretty_print_ast_expression expression ^ ")." ^ name;;
 
 let rec pretty_print_ast_type ast_type =
   match ast_type with
     | Ast.TInt -> "Int"
     | Ast.TBool -> "Bool"
-    | Ast.TUnit -> "Unit"
+    | Ast.TRecord types -> "{" ^
+      String.concat ",\n" (List.map (fun (_, (name, name_type)) -> name ^ " : " ^ pretty_print_ast_type name_type) types)  ^ "}\n"
     | Ast.Function (input, output) -> pretty_print_ast_type input ^ " -> " ^ pretty_print_ast_type output;;
 
 let pretty_print_ast_function function_block =

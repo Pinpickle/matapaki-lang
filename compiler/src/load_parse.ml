@@ -24,7 +24,7 @@ let rec parse_and_print verbose lexbuf =
       print_endline (Pretty_print.pretty_print_ast_program ast)
     );
     match Compile.either_type_of_program ast with
-      | Right program_type -> print_endline (Yojson.to_string (Output.program_and_type_to_json ast program_type))
+      | Right typed_ast -> print_endline (Yojson.to_string (Output.program_and_type_to_json typed_ast))
       | Left () -> fprintf stderr "Type error")
   | None -> ()
 

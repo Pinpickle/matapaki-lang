@@ -1,2 +1,2 @@
-export fun and: Unit -> Bool arg = true && false
-export fun or: Unit -> Bool arg = true || false
+export fun and: { } -> Bool arg = true && false
+export fun or: { } -> Bool arg = true || false

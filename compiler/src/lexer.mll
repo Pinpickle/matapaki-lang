@@ -33,13 +33,14 @@ rule read =
   | "true" { BOOL true }
   | "false" { BOOL false }
   | "export" { EXPORT }
-  | "(|" { RECORD_OPEN }
-  | "|)" { RECORD_CLOSE }
+  | "{" { RECORD_OPEN }
+  | "}" { RECORD_CLOSE }
   | "(" { LEFT_PAREN }
   | ")" { RIGHT_PAREN }
+  | "," { COMMA }
+  | "." { PERIOD }
   | "Int" { TINT }
   | "Bool" { TBOOL }
-  | "Unit" { TUNIT }
   | ":" { COLON }
   | "->" { ARROW }
   | "fun" { FUN }

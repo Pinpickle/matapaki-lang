@@ -24,6 +24,7 @@ export_code
     r_body
     r_return_type
     r_argument_type
+    r_exported_functions
   in OCaml
   file "src/compiler_theory.ml"
 
