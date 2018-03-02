@@ -2,15 +2,27 @@ theory Types
   imports Main List String "./Ast"
 begin
 
-type_synonym type_context = "(String.literal * astType) list"
-type_synonym typed_ast = "astType * astExpression"
+record type_context =
+  r_variable_environment :: "(String.literal * astType) list"
+  r_is_effect_unwrap :: "bool"
+  r_state_type :: astType
+
+type_synonym ast_effect_and_type = "astType * ast_effect set"
+
+type_synonym typed_ast = "ast_effect_and_type * astExpression"
+
+fun type_for_name_in_environment :: "(String.literal * astType) list \<Rightarrow> String.literal \<Rightarrow> astType option" where
+  "type_for_name_in_environment [] _ = None" |
+  "type_for_name_in_environment (Cons (name, type) rest) required_name = (
+    if (name = required_name) then Some type
+    else type_for_name_in_environment rest required_name
+  )"
+
+fun add_type_to_context :: "type_context \<Rightarrow> String.literal \<Rightarrow> astType \<Rightarrow> type_context" where
+  "add_type_to_context context name type = context\<lparr> r_variable_environment := (name, type) # (r_variable_environment context) \<rparr>"
 
 fun type_for_name_in_context :: "type_context \<Rightarrow> String.literal \<Rightarrow> astType option" where
-  "type_for_name_in_context [] _ = None" |
-  "type_for_name_in_context (Cons (name, type) rest) required_name = (
-    if (name = required_name) then Some type
-    else type_for_name_in_context rest required_name
-  )"
+  "type_for_name_in_context context name = type_for_name_in_environment (r_variable_environment context) name"
 
 fun either_type_of_binary_operator :: "astBinaryOperator * astType * astType \<Rightarrow> (astType, unit) either" where
   "either_type_of_binary_operator (Plus, TInt, TInt) = Right TInt" |
@@ -20,9 +32,9 @@ fun either_type_of_binary_operator :: "astBinaryOperator * astType * astType \<R
   "either_type_of_binary_operator (_, _, _) = Left ()"
 
 fun either_type_of_either_binary_operator :: "astBinaryOperator * (typed_ast, unit) either * (typed_ast, unit) either \<Rightarrow> (typed_ast, unit) either" where
-  "either_type_of_either_binary_operator (operator, Right (t1, ast1), Right (t2, ast2)) = (
+  "either_type_of_either_binary_operator (operator, Right ((t1, ef1), ast1), Right ((t2, ef2), ast2)) = (
     case either_type_of_binary_operator (operator, t1, t2) of
-      Right operator_type \<Rightarrow> Right (operator_type, BinaryOperator (operator, ast1, ast2)) |
+      Right operator_type \<Rightarrow> Right ((operator_type, ef1 \<union> ef2), BinaryOperator (operator, ast1, ast2)) |
       Left _ \<Rightarrow> Left ()
   )" |
   "either_type_of_either_binary_operator (_, _, _) = Left ()"
@@ -31,17 +43,21 @@ fun type_of_value :: "astValue \<Rightarrow> astType" where
   "type_of_value (Integer _) = TInt" |
   "type_of_value (Bool _) = TBool"
 
+fun is_effectful_function_unwrapped :: "type_context \<Rightarrow> astType \<Rightarrow> bool" where
+  "is_effectful_function_unwrapped context (TEffect _) = r_is_effect_unwrap context" |
+  "is_effectful_function_unwrapped _ _ = True"
+
 fun either_type_of_expression :: "type_context \<Rightarrow> astExpression => (typed_ast, unit) either" where
   "either_type_of_expression context (BinaryOperator (operator, expression1, expression2)) =
     either_type_of_either_binary_operator (operator, either_type_of_expression context expression1, either_type_of_expression context expression2)" |
   "either_type_of_expression context (Value v) =
-    Right (type_of_value v, Value v)" |
+    Right ((type_of_value v, {}), Value v)" |
   "either_type_of_expression context (LetBinding ((name, assignment), inner_expression)) = (
     case (either_type_of_expression context assignment) of
-      Right (let_binding_type, let_value_ast)  \<Rightarrow> (case (type_for_name_in_context context name) of
+      Right ((let_binding_type, let_value_effects), let_value_ast)  \<Rightarrow> (case (type_for_name_in_context context name) of
         None \<Rightarrow> (
-          case (either_type_of_expression (Cons (name, let_binding_type) context) inner_expression) of
-            Right (let_in_type, let_in_ast) \<Rightarrow> Right (let_in_type, LetBinding ((name, let_value_ast), let_in_ast)) |
+          case (either_type_of_expression (add_type_to_context context name let_binding_type) inner_expression) of
+            Right ((let_in_type, let_in_effects), let_in_ast) \<Rightarrow> Right ((let_in_type, let_value_effects \<union> let_in_effects), LetBinding ((name, let_value_ast), let_in_ast)) |
             Left _ \<Rightarrow> Left ()
           ) |
         Some _ \<Rightarrow> Left ()
@@ -50,41 +66,59 @@ fun either_type_of_expression :: "type_context \<Rightarrow> astExpression => (t
   )" |
   "either_type_of_expression context (Variable name) = (
     case (type_for_name_in_context context name) of
-      Some type \<Rightarrow> Right (type, Variable name) |
+      Some type \<Rightarrow> Right ((type, {}), Variable name) |
       None \<Rightarrow> Left ()
   )" |
   "either_type_of_expression context (FunctionApplication (name, argument)) = (
     case (type_for_name_in_context context name) of
       Some (Function (input_type, output_type)) \<Rightarrow> (
-        case (either_type_of_expression context argument) of
-          Right (argument_type, argument_ast) \<Rightarrow> if (argument_type = input_type) then Right (output_type, FunctionApplication (name, argument_ast))
-            else Left () |
-          Left _ \<Rightarrow> Left ()
+        if (is_effectful_function_unwrapped context input_type) then (
+          case (either_type_of_expression (context\<lparr> r_is_effect_unwrap := False \<rparr>) argument) of
+            Right ((argument_type, argument_effects), argument_ast) \<Rightarrow> if (argument_type = input_type) then Right ((output_type, argument_effects), FunctionApplication (name, argument_ast))
+              else Left () |
+            Left _ \<Rightarrow> Left ()
+        ) else Left ()
       ) |
+      Some _ \<Rightarrow> Left () |
       None \<Rightarrow> Left ()
     )
   " |
   "either_type_of_expression context (RecordLiteral values) = (
     let typed_values = List.map_filter (\<lambda>x. x) (List.map (\<lambda>(i, (name, expression)). (
       case (either_type_of_expression context expression) of
-      Right (value_type, value_ast) \<Rightarrow> Some (i, name, value_type, value_ast) |
+      Right ((value_type, value_effects), value_ast) \<Rightarrow> Some (i, name, (value_type, value_effects), value_ast) |
       Left _ \<Rightarrow> None
     )) values) in (
       if size typed_values = size values then
-        Right (TRecord (map (\<lambda>(i, name, value_type, _). (i, (name, value_type))) typed_values), RecordLiteral (map (\<lambda>(i, name, _, value_ast). (i, (name, value_ast))) typed_values))
+        Right (
+          (
+            TRecord (map (\<lambda>(i, name, (value_type, _), _). (i, (name, value_type))) typed_values),
+            (fold (\<lambda>(_, _, (_, value_effects), _). (\<lambda>all_effects. all_effects \<union> value_effects)) typed_values {})
+          ),
+          RecordLiteral (map (\<lambda>(i, name, _, value_ast). (i, (name, value_ast))) typed_values)
+        )
       else
         Left ()
       )
     )" |
-  "either_type_of_expression context (RecordAccess (record_expression, name, [])) = (
+  "either_type_of_expression context (RecordAccess (record_expression, name, _)) = (
     case (either_type_of_expression context record_expression) of
-      Right (TRecord record_values, record_expression) \<Rightarrow> (
+      Right ((TRecord record_values, effects), record_expression) \<Rightarrow> (
         case List.find (\<lambda>(i, (value_name, value_type)). name = value_name) record_values of
-          Some (_, (_, value_type)) \<Rightarrow> Right (value_type, RecordAccess (record_expression, name, map (\<lambda>(i, (value_name, _)). (i, value_name)) record_values)) |
+          Some (_, (_, value_type)) \<Rightarrow> Right ((value_type, effects), RecordAccess (record_expression, name, map (\<lambda>(i, (value_name, _)). (i, value_name)) record_values)) |
           None \<Rightarrow> Left ()
       ) |
+      Right _ \<Rightarrow> Left () |
       Left _ \<Rightarrow> Left ()
-  )"
+  )" |
+  "either_type_of_expression context (EffectUnwrap expression) = (
+    case (either_type_of_expression context expression) of
+      Right ((TEffect (wrapped_effects, t), effects), e) \<Rightarrow> (
+        Right ((t, effects \<union> wrapped_effects), EffectUnwrap e)
+      ) |
+      Right _ \<Rightarrow> Left () |
+      Left _ \<Rightarrow> Left ()
+    )"
 
 
 
@@ -94,33 +128,86 @@ fun is_type_simple :: "astType \<Rightarrow> bool" where
   "is_type_simple TBool = True" |
   "is_type_simple (TRecord values) = (
     List.list_all (\<lambda>(_, (_, record_type)). record_type = TInt \<or> record_type = TBool) values)" |
+  "is_type_simple (TEffect (_, type)) = is_type_simple type" |
   "is_type_simple _ = False"
+
+fun do_effects_match_type :: "ast_effect set \<Rightarrow> astType \<Rightarrow> astType  \<Rightarrow> bool" where
+  "do_effects_match_type effects type (TEffect (return_type_effects, return_effect_type)) = ((effects \<subseteq> return_type_effects) \<and> (return_effect_type = type))" |
+  "do_effects_match_type effects type return_type = ((effects = {}) \<and> (type = return_type))"
+
+fun does_return_type_match_modifier :: "type_context \<Rightarrow> ast_function_modifier \<Rightarrow> astType \<Rightarrow> astType \<Rightarrow> bool" where
+  "does_return_type_match_modifier context modifier (TEffect (modifier_effects, modifier_inner_type)) (TEffect (modifiee_effects, modifiee_inner_type)) = (
+    (modifiee_effects \<subseteq> modifier_effects) \<and> (does_return_type_match_modifier context modifier (TEffect (modifier_effects, modifier_inner_type)) modifiee_inner_type)
+  )" |
+  "does_return_type_match_modifier context WithState (TEffect (modifier_effects, modifier_inner_type)) modifiee_type = (
+    (modifier_effects \<supseteq> { LocalRead }) \<and> (modifier_inner_type = modifiee_type)
+  )" |
+  "does_return_type_match_modifier context UpdatingState (TEffect (modifier_effects, modifier_inner_type)) (TRecord (modifiee_record_values)) = (
+    (modifier_effects \<supseteq> { LocalRead, LocalWrite }) \<and> (modifiee_record_values = [
+      (0, (String.implode ''state'', r_state_type context)),
+      (1, (String.implode ''value'', modifier_inner_type))
+    ])
+  )" |
+  "does_return_type_match_modifier _ _ _ _ = False"
 
 fun either_type_of_function :: "type_context \<Rightarrow> ast_function_definition \<Rightarrow> (ast_function_definition, unit) either" where
   "either_type_of_function context definition = (
     if ((\<not>(r_exported definition)) \<or> ((is_type_simple (r_argument_type definition)) \<and> (is_type_simple (r_return_type definition)))) then (
-      case (either_type_of_expression ((r_argument_name definition, r_argument_type definition) # context) (r_body definition)) of
-        Right (body_type, typed_body) \<Rightarrow> (
-          if (body_type = (r_return_type definition)) then Right (definition\<lparr>r_body := typed_body\<rparr>)
-          else Left ()
-        ) |
-        Left _ \<Rightarrow> Left ()
+      case (r_body definition) of
+        FunctionExpression body_expression \<Rightarrow> (
+          case (either_type_of_expression (add_type_to_context context (r_argument_name definition) (r_argument_type definition)) body_expression) of
+            Right ((body_type, body_effects), typed_body) \<Rightarrow> (
+              if (do_effects_match_type body_effects body_type (r_return_type definition)) then Right (definition\<lparr>r_body := FunctionExpression typed_body\<rparr>)
+              else Left ()
+            ) |
+            Left _ \<Rightarrow> Left ()
+          ) |
+        FunctionModifier (name, modifier) \<Rightarrow> (
+          case ((type_for_name_in_context context name), r_return_type definition) of
+            (Some (Function (TRecord argument_record_values, modifiee_return_type)), modifier_return_type) \<Rightarrow>
+              if (
+                (argument_record_values = [(0, (String.implode ''state'', r_state_type context)), (1, (String.implode ''arg'', r_argument_type definition))]) \<and>
+                (does_return_type_match_modifier context modifier modifier_return_type modifiee_return_type)
+              ) then Right definition else Left () |
+            _ \<Rightarrow> Left ()
+        )
       )
     else Left ()
   )
   "
 
-fun context_of_functions :: "ast_function_definition list \<Rightarrow> type_context" where
-  "context_of_functions function_definitions = map (\<lambda>def. (r_function_name def, Function (r_argument_type def, r_return_type def))) function_definitions"
+fun is_init_definition_valid :: "type_context \<Rightarrow> ast_function_definition \<Rightarrow> bool" where
+  "is_init_definition_valid context init_definition = (
+    \<not>(r_exported init_definition) \<and>
+    (is_type_simple (r_argument_type init_definition)) \<and>
+    (r_state_type context = r_return_type init_definition)
+  )"
+
+fun context_of_program :: "ast_program \<Rightarrow> type_context" where
+  "context_of_program program = \<lparr>
+    r_variable_environment = map (\<lambda>def. (r_function_name def, Function (r_argument_type def, r_return_type def))) 
+      (filter (\<lambda>def. (r_function_name def) \<noteq> AST_INIT_NAME) (r_defined_functions program)),
+    r_is_effect_unwrap = False,
+    r_state_type = r_program_state_type program
+  \<rparr>"
 
 fun either_type_of_program :: "ast_program \<Rightarrow> (typed_program, unit) either" where
   "either_type_of_program program = (
-    let context = context_of_functions (r_defined_functions program);
-        types = map (either_type_of_function context) (r_defined_functions program);
+    let context = context_of_program (program);
+        types = map (either_type_of_function context) (r_defined_functions program); 
         correct_types = List.map_filter (option_of_either) types in (
-      if (size types = size correct_types) then
-        Right \<lparr>r_defined_functions = correct_types, r_exported_functions = (filter r_exported  correct_types)\<rparr>
-      else Left ()
+      case (List.find (\<lambda>def. (r_function_name def) = AST_INIT_NAME) (r_defined_functions program)) of 
+        Some init_function_definition \<Rightarrow> (
+          if (size types = size correct_types) \<and> (is_init_definition_valid context init_function_definition) then Right \<lparr>
+            r_defined_functions = correct_types,
+            r_program_state_type = r_program_state_type program,
+            r_exported_functions = (filter r_exported  correct_types)
+          \<rparr>
+          else Left ()
+        ) |
+        None \<Rightarrow> Left ()
+      (*if (size types = size correct_types) then
+        *)
     )
   )
   "

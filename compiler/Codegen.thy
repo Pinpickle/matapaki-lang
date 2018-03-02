@@ -8,32 +8,23 @@ record program_function = ast_function_definition +
 record codegen_context =
   r_variable_locations :: variable_location_list
   r_program_functions :: "program_function list"
+  r_codegen_state_type :: "astType"
 
-definition NULL_POINTER_ADDRESS :: "nat" where 
-  "NULL_POINTER_ADDRESS = 0"
+definition "STORAGE_ADDRESS_MASK = ((word_cat (1::1 word) (0::255 word))::256 word)"
+definition "STORAGE_RE_ENTRANCY_FLAG_STATE_ADDRESS = 0"
+definition "STORAGE_STATE_ADDRESS = unat (STORAGE_ADDRESS_MASK)"
 
-definition RE_ENTRANCY_FLAG_ADDRESS :: "nat" where 
-  "RE_ENTRANCY_FLAG_ADDRESS = 32"
+definition "NULL_POINTER_ADDRESS = 0"
+definition "NEXT_FREE_MEMORY_ADDRESS = 32"
+definition "FRAME_POINTER_ADDRESS = 64"
 
-definition NEXT_FREE_MEMORY_ADDRESS :: "nat" where 
-  "NEXT_FREE_MEMORY_ADDRESS = 64"
-
-definition FRAME_POINTER_ADDRESS :: "nat" where 
-  "FRAME_POINTER_ADDRESS = 96"
-
-definition INITIAL_INSTRUCTIONS_LENGTH :: "nat" where
-  "INITIAL_INSTRUCTIONS_LENGTH = 34"
-
-definition REVERT_INSTRUCTION :: "inst" where
-  "REVERT_INSTRUCTION = Unknown 253"
-
-definition REVERT_WITH_NO_DATA :: "inst list" where
-  "REVERT_WITH_NO_DATA = [Stack (PUSH_N [0]), Stack (PUSH_N [0]), REVERT_INSTRUCTION]"
+definition "INITIAL_INSTRUCTIONS_LENGTH = 34"
+definition "REVERT_INSTRUCTION = Unknown 253"
+definition "REVERT_WITH_NO_DATA = [Stack (PUSH_N [0]), Stack (PUSH_N [0]), REVERT_INSTRUCTION]"
 
 (* The NOT instruction flips every bit.
    We only want to flip the first bit so 0 becomes 1 and vice versa.  *)
-definition BOOLEAN_NOT :: "inst list" where
-  "BOOLEAN_NOT = [Stack (PUSH_N [0]), Arith inst_EQ]"
+definition "BOOLEAN_NOT = [Stack (PUSH_N [0]), Arith inst_EQ]"
 
 (*
   Layout of memory during execution:
@@ -127,7 +118,7 @@ fun instructions_to_call_function_of_name :: "codegen_context \<Rightarrow> Stri
       Memory MSTORE
     ]"
 
-fun create_record :: "(nat * inst list) list \<Rightarrow> inst list" where
+definition create_record :: "(nat * inst list) list \<Rightarrow> inst list" where
   "create_record values =
     [
       (* First reserve the memory we need for this record*)
@@ -138,22 +129,20 @@ fun create_record :: "(nat * inst list) list \<Rightarrow> inst list" where
       (* [free address, free address] *)
       Dup 0,
       (* [record size, free address, free address] *)
-      Stack (PUSH_N (number_to_words (32 + length (values) * 40))),
+      Stack (PUSH_N (number_to_words (length (values) * 40))),
       (* [new free address, free address] *)
       Arith ADD,
       (* [free address pointer, new free address, free address] *)
       Stack (PUSH_N (number_to_words (NEXT_FREE_MEMORY_ADDRESS))),
       (* [free address] *)
       Memory MSTORE
-    ] @ List.concat (map (\<lambda>(i, instructions). [
-      (* [free address, free address] *)
-      Dup 0
-      (* [value, free address, free address] *)
-    ] @ instructions @ [
+    ] @ List.concat (map (\<lambda>(i, instructions).
+      (* [value, free address] *)
+      instructions @ [
       (* [free address, value, free address] *)
-      Swap 0,
+      Dup 1,
       (* [record offset, free address, value, free address] *)
-      Stack (PUSH_N (number_to_words (i * 40 + 32))),
+      Stack (PUSH_N (number_to_words (i * 40))),
       (* [value address, value, free address] *)
       Arith ADD,
       (* [value address, value address, value, free address] *)
@@ -163,7 +152,7 @@ fun create_record :: "(nat * inst list) list \<Rightarrow> inst list" where
       (* [value address, true (byte), value address, value, free address] *)
       Swap 0,
       (* [value address, value, free address] *)
-      Memory MSTORE,
+      Memory MSTORE8,
       (* [8, value address, value, free address] *)
       Stack (PUSH_N [8]),
       (* [value address, value, free address] *)
@@ -172,17 +161,50 @@ fun create_record :: "(nat * inst list) list \<Rightarrow> inst list" where
       Memory MSTORE
     ]) values)"
 
+fun fetch_state :: "astType \<Rightarrow> inst list" where
+  "fetch_state _ = [
+    Stack (PUSH_N (number_to_words (STORAGE_STATE_ADDRESS))),
+    Storage SLOAD
+  ]"
+
 fun access_record :: "inst list \<Rightarrow> nat \<Rightarrow> inst list" where
   "access_record instructions i = 
   (* [record address] *)
-  instructions @ [
-    (* [value offset, record address] *)
-    Stack (PUSH_N (number_to_words (i * 40 + 32 + 8))),
-    (* [value location] *)
-    Arith ADD,
-    (* [value] *)
-    Memory MLOAD
-  ]"
+  instructions @ (
+    let memory_access_instructions = [
+          Pc JUMPDEST,
+          (* [value offset, record address] *)
+          Stack (PUSH_N (number_to_words (i * 40 + 8))),
+          (* [value location] *)
+          Arith ADD,
+          (* [value] *)
+          Memory MLOAD
+        ];
+      storage_access_instructions = [
+          Stack (PUSH_N (number_to_words (i))),
+          Arith ADD,
+          Storage SLOAD,
+          Stack (PUSH_N (number_to_words (size (bytes_of_instructions memory_access_instructions) + 3))),
+          Pc PC,
+          Arith ADD,
+          Pc JUMP
+        ] in (
+      [
+        (* [record address, record address] *)
+        Dup 0,
+        Stack (PUSH_N (word_rsplit STORAGE_ADDRESS_MASK)),
+        Bits inst_AND,
+        Stack (PUSH_N [0]),
+        (* [is address memory, record address] *)
+        Arith inst_EQ,
+        Stack (PUSH_N (number_to_words (size (bytes_of_instructions storage_access_instructions) + 3))),
+        Pc PC,
+        Arith ADD,
+        Pc JUMPI
+      ] @ storage_access_instructions @ memory_access_instructions @ [Pc JUMPDEST]
+    ))"
+      
+
 
 fun instructions_of_expression :: "codegen_context \<Rightarrow> astExpression => inst list" where
   "instructions_of_expression context (BinaryOperator (operator, e1, e2)) =
@@ -223,13 +245,15 @@ fun instructions_of_expression :: "codegen_context \<Rightarrow> astExpression =
       case List.find (\<lambda>(i, value_name). value_name = name) names of
         Some (i, _) \<Rightarrow> access_record (instructions_of_expression context expression) i|
         None \<Rightarrow> REVERT_WITH_NO_DATA
-    )"
+    )" |
+  "instructions_of_expression context (EffectUnwrap expression) = (instructions_of_expression context expression)"
 
-fun populate_function_with_instructions :: "codegen_context \<Rightarrow> program_function \<Rightarrow> program_function" where
-  "populate_function_with_instructions context function = function\<lparr>
-    r_instructions := (let argument_offset = (count_max_let_binding (r_body function)) * 32 in ([
-      Pc JUMPDEST
-    ] @
+(* This assumes the argument is at the top of the stack,
+   and finishes with the result on the top of the stack.
+   Leaving everything else unaffected. *)
+fun function_body_to_instructions :: "codegen_context \<Rightarrow> ast_function_body \<Rightarrow> String.literal \<Rightarrow> inst list" where
+  "function_body_to_instructions context (FunctionExpression expression) arg_name = (
+    let argument_offset = (count_max_let_binding (expression)) * 32 in (
       (* Make room for all let bindings in this function *)
       place_offset_from_frame_pointer (argument_offset + 32) @ 
     [
@@ -242,15 +266,19 @@ fun populate_function_with_instructions :: "codegen_context \<Rightarrow> progra
     ] @
       (* Execute function body *)
       instructions_of_expression (context\<lparr>r_variable_locations := 
-        (r_argument_name function, argument_offset) # (r_variable_locations context)
-      \<rparr>) (r_body function) @
-      (* Return to caller *)
-    [
-      Swap 0,
-      Pc JUMP
-    ]
+        (arg_name, argument_offset) # (r_variable_locations context)
+      \<rparr>) (expression)
     )
-    )
+    )" |
+  "function_body_to_instructions context (FunctionModifier (modifiee_name, WithState)) _ = create_record [
+    (0, fetch_state (r_codegen_state_type context)),
+    (1, [Swap 0] (* argument is second element on the stack at point of execution *))
+  ] @ instructions_to_call_function_of_name context modifiee_name"
+    
+
+fun populate_function_with_instructions :: "codegen_context \<Rightarrow> program_function \<Rightarrow> program_function" where
+  "populate_function_with_instructions context function = function\<lparr>
+    r_instructions := [Pc JUMPDEST] @ (function_body_to_instructions context (r_body function) (r_argument_name function)) @ [Swap 0, Pc JUMP]
   \<rparr>"
 
 fun instructions_of_program_context_functions :: "codegen_context \<Rightarrow> inst list" where
@@ -295,6 +323,7 @@ fun name_of_type_string :: "astType \<Rightarrow> string" where
   "name_of_type_string (TRecord []) = ''''" |
   "name_of_type_string (TRecord [(_, (_, record_type))]) = name_of_type_string record_type" |
   "name_of_type_string (TRecord ((_, (_, record_type)) # vals)) = List.concat [name_of_type_string record_type, '','',  name_of_type_string (TRecord vals)]" |
+  "name_of_type_string (TEffect (_, inner_type)) = name_of_type_string inner_type" |
   "name_of_type_string _ = ''''"
 
 fun name_of_type :: "astType \<Rightarrow> String.literal" where
@@ -310,6 +339,32 @@ fun function_string_representation :: "String.literal \<Rightarrow> astType \<Ri
 
 fun function_signature :: "String.literal \<Rightarrow> astType \<Rightarrow> astType \<Rightarrow> byte list" where
   "function_signature name input_type output_type = take 4 (word_rsplit (keccak (map (\<lambda>c. word_of_int (nat_of_char c)) (function_string_representation name input_type output_type))))"
+
+fun save_state_scalar_at_address :: "nat \<Rightarrow> inst list" where
+  "save_state_scalar_at_address addr = [
+    Stack (PUSH_N (number_to_words addr)),
+    Storage SSTORE
+  ]"
+
+fun save_state_at_address :: "inst list \<Rightarrow> astType \<Rightarrow> nat \<Rightarrow> inst list" where
+  "save_state_at_address instructions TInt addr = instructions @ save_state_scalar_at_address addr" |
+  "save_state_at_address instructions TBool addr = instructions @ save_state_scalar_at_address addr" |
+  "save_state_at_address instructions (TRecord record_values) addr = (let contents_address = unat (STORAGE_ADDRESS_MASK OR keccak (number_to_words (addr))) in 
+    (instructions @ List.concat (List.map 
+    (\<lambda>(index, (_, type)). (
+      (save_state_at_address
+        (access_record [Dup 0] index)
+        type
+        (contents_address + index))
+    )) record_values)
+  ) @ [
+    Stack POP,
+    Stack (PUSH_N (number_to_words contents_address)),
+    Stack (PUSH_N (number_to_words addr)),
+    Storage SSTORE
+  ])" |
+  "save_state_at_address _ _ _ = REVERT_WITH_NO_DATA"
+    
 
 (* This function returns instructions that assumes there is a value
    of the given type at the top of the stack. These instructions take
@@ -338,7 +393,8 @@ fun return_instructions_for_type :: "astType \<Rightarrow> inst list" where
     Stack (PUSH_N (number_to_words ((length values) * 32))),
     Swap 0,
     Misc RETURN
-  ]"|
+  ]" |
+  "return_instructions_for_type (TEffect (_, inner_type)) = return_instructions_for_type inner_type" |
   "return_instructions_for_type _ = REVERT_WITH_NO_DATA (* Other types are impossible in a well-typed program *)"
 
 fun extract_type_from_call_data :: "astType \<Rightarrow> inst list" where
@@ -408,7 +464,12 @@ fun functions_to_selection_instruction :: "codegen_context \<Rightarrow> program
     Stack (PUSH_N [0]),
     REVERT_INSTRUCTION
   ]"
-    
+
+fun program_defined_init :: "codegen_context \<Rightarrow> inst list" where
+  "program_defined_init context = save_state_at_address ([
+    Stack (PUSH_N [0]) (* Dummy no arg *)
+  ] @ instructions_to_call_function_of_name context AST_INIT_NAME) (r_codegen_state_type context) STORAGE_STATE_ADDRESS"
+
 fun init_instructions_naive :: "codegen_context \<Rightarrow> nat \<Rightarrow> inst list" where
   "init_instructions_naive context offset = [
     (* [pre-marker pc] *)
@@ -424,9 +485,11 @@ fun init_instructions_naive :: "codegen_context \<Rightarrow> nat \<Rightarrow> 
     Arith ADD,
     (* Jump to JUMPDEST at the bottom of this section if marker is 1
        [pre-marker pc] *)
-    Pc JUMPI,
+    Pc JUMPI ] @
+    (* Run user-defined init *)
+    program_defined_init context @
     (* Put existing code into memory  *)
-    Info CODESIZE,
+    [Info CODESIZE,
     Stack (PUSH_N [0]),
     Stack (PUSH_N [0]),
     Memory CODECOPY,
@@ -450,7 +513,7 @@ fun init_instructions :: "codegen_context \<Rightarrow> inst list" where
 
 fun instructions_of_program :: "typed_program \<Rightarrow> inst list" where
   "instructions_of_program program = (
-    let (instructions, context) = instructions_of_ast_functions \<lparr>r_variable_locations = [], r_program_functions = []\<rparr> (r_defined_functions program) in
+    let (instructions, context) = instructions_of_ast_functions \<lparr>r_variable_locations = [], r_program_functions = [], r_codegen_state_type = r_program_state_type program\<rparr> (r_defined_functions program) in
       instructions @ [
         Stack (PUSH_N [(10 * 16)]),
         Stack (PUSH_N [(10 * 16)]),

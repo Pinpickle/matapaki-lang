@@ -29,6 +29,9 @@ rule read =
   | "-" { BINARY_OPERATOR Ast.Minus }
   | "&&" { BINARY_OPERATOR Ast.And }
   | "||" { BINARY_OPERATOR Ast.Or }
+  | "Write" { WRITE }
+  | "Read" { READ }
+  | "Effect" { TEFFECT }
   | "=" { EQUALS }
   | "true" { BOOL true }
   | "false" { BOOL false }
@@ -44,6 +47,11 @@ rule read =
   | ":" { COLON }
   | "->" { ARROW }
   | "fun" { FUN }
+  | "!" { EXCLAMATION }
+  | "State" { STATE }
+  | "as" { AS }
+  | "with_state" { WITH_STATE }
+  | "updating_state" { UPDATING_STATE }
   | identifier { IDENTIFIER (Lexing.lexeme lexbuf) }
   | _ { raise (SyntaxError ("Unexpected char: " ^ Lexing.lexeme lexbuf)) }
   | eof { EOF }

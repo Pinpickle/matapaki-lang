@@ -22,17 +22,24 @@
 %token COLON
 %token ARROW
 %token EXPORT
-%token TUNIT
 %token RECORD_OPEN
 %token RECORD_CLOSE
 %token COMMA
 %token PERIOD
+%token TEFFECT
+%token WRITE
+%token READ
+%token EXCLAMATION
+%token WITH_STATE
+%token UPDATING_STATE
+%token STATE
+%token AS
 %token <Compiler_theory.Ast.astBinaryOperator> BINARY_OPERATOR
 
 %start <unit Compiler_theory.Ast.ast_program_ext option> prog
 %%
 
-prog: functions = function_list; EOF { Some (Compiler_theory.Ast.make_ast_program functions) }
+prog: state_type = state_declaration; functions = function_list; EOF { Some (Compiler_theory.Ast.make_ast_program functions state_type) }
 
 expression:
   | LET; iden = IDENTIFIER; EQUALS; assignment = expression; SEMICOLON; inner = expression
@@ -42,9 +49,22 @@ expression:
   ;
 
 function_block:
-  | export = EXPORT?; FUN; name = IDENTIFIER; COLON; input_type = type_expr; ARROW; output_type = type_expr; argument_name = IDENTIFIER; EQUALS; body = expression;
-    { Compiler_theory.Ast.make_ast_function name argument_name input_type output_type body (not (export = None)) }
+  | export = EXPORT?; FUN; name = IDENTIFIER; COLON; input_type = type_expr; ARROW; output_type = type_expr; argument_name_and_body = function_body;
+    { let (argument_name, body) = argument_name_and_body in
+      Compiler_theory.Ast.make_ast_function name argument_name input_type output_type body (not (export = None)) }
   ;
+
+function_body:
+  | argument_name = IDENTIFIER; EQUALS; body = expression; { (argument_name, Compiler_theory.Ast.FunctionExpression body) }
+  | AS; modifiee_name = IDENTIFIER; modifier = function_modifier { ("arg", Compiler_theory.Ast.FunctionModifier(modifiee_name, modifier)) }
+  ;
+
+function_modifier:
+  | WITH_STATE { Compiler_theory.Ast.WithState }
+  | UPDATING_STATE { Compiler_theory.Ast.UpdatingState }
+  ;
+
+state_declaration: STATE; t = type_expr { t }
 
 function_list: functions = function_list_rev { List.rev functions }
 
@@ -56,6 +76,17 @@ type_expr:
   | TINT { Compiler_theory.Ast.TInt }
   | TBOOL { Compiler_theory.Ast.TBool }
   | r = record_type { r }
+  | e = effect_type { e }
+  ;
+
+effect_type:
+  | TEFFECT; LEFT_PAREN; effects = separated_list(COMMA, effect); RIGHT_PAREN; t = type_expr
+    { Compiler_theory.Ast.TEffect ((Compiler_theory.Set.Set effects), t) }
+  ;
+
+effect:
+  | WRITE { Compiler_theory.Ast.LocalWrite }
+  | READ { Compiler_theory.Ast.LocalRead }
   ;
 
 record_type:
@@ -93,6 +124,7 @@ expression_with_value:
   | record = record_expression { record }
   | e = record_access
     { e }
+  | e = expression_with_value; EXCLAMATION; { Compiler_theory.Ast.EffectUnwrap e }
   | name = IDENTIFIER; argument = expression;
     { Compiler_theory.Ast.FunctionApplication (name, argument) }
   | iden = IDENTIFIER;

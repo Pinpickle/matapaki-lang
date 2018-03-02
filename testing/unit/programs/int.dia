@@ -1,3 +1,8 @@
+State { }
+
+fun init: { } -> { }
+  arg = { }
+
 export fun operator_presedence: { } -> Int arg = 10 + 1000 - 20 + 33 - (40 + 2)
 export fun addition: { } -> Int arg = 10 + 5
 export fun subtraction: { } -> Int arg = 10 - 5

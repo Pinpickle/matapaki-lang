@@ -13,9 +13,13 @@ export_code
     name_of_type
     Plus
     TInt
+    WithState
+    FunctionExpression
     Integer
+    LocalRead
     int_of_integer
     integer_of_int
+    set_of_list
     Right
     inst_code
     make_ast_function

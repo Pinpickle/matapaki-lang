@@ -1,3 +1,8 @@
+State { }
+
+fun init: { } -> { }
+  arg = { }
+
 export fun add_two_numbers: { x: Int, y: Int } -> Int
   args =
     args.x + args.y
