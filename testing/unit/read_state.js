@@ -3,7 +3,7 @@ const { testDiamond } = require('../utils/blockchain');
 const { runEvm } = require('../utils/evm');
 
 test('State is recalled', async t => {
-  const { contract, coinbase, client } = await testDiamond({ pathName: __dirname + '/programs/stateful.dia' });
+  const { contract, coinbase, client } = await testDiamond({ pathName: __dirname + '/programs/read_state.dia' });
 
   t.deepEqual(
     await contract.methods.get_x().call({ from: coinbase, gas: 40000 }),

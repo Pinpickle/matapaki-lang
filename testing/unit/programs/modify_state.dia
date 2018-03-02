@@ -1,0 +1,23 @@
+State { x: Int, y: Int }
+
+fun init: { } -> { x: Int, y: Int }
+  arg = { x = 5, y = 10 }
+
+fun x_from_state: { state: { x: Int, y: Int }, arg: { } } -> Int
+  arg = arg.state.x
+
+fun increase_x_in_state: { state: { x: Int, y: Int }, arg: { } } -> { state: { x: Int, y: Int }, value: Int }
+  arg = let new_x = arg.state.x + 1;
+  {
+    state = {
+      x = new_x,
+      y = arg.state.y
+    },
+    value = new_x
+  }
+
+export fun get_x: { } -> Effect (Read) Int
+  as x_from_state with_state
+
+export fun inc_x: { } -> Effect (Read, Write) Int
+  as increase_x_in_state updating_state

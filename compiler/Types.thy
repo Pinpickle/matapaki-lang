@@ -114,7 +114,9 @@ fun either_type_of_expression :: "type_context \<Rightarrow> astExpression => (t
   "either_type_of_expression context (EffectUnwrap expression) = (
     case (either_type_of_expression context expression) of
       Right ((TEffect (wrapped_effects, t), effects), e) \<Rightarrow> (
-        Right ((t, effects \<union> wrapped_effects), EffectUnwrap e)
+        if (LocalRead \<notin> wrapped_effects \<and> LocalWrite \<notin> wrapped_effects) then
+          Right ((t, effects \<union> wrapped_effects), EffectUnwrap e)
+        else Left ()
       ) |
       Right _ \<Rightarrow> Left () |
       Left _ \<Rightarrow> Left ()

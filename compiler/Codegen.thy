@@ -167,7 +167,7 @@ fun fetch_state :: "astType \<Rightarrow> inst list" where
     Storage SLOAD
   ]"
 
-fun access_record :: "inst list \<Rightarrow> nat \<Rightarrow> inst list" where
+definition access_record :: "inst list \<Rightarrow> nat \<Rightarrow> inst list" where
   "access_record instructions i = 
   (* [record address] *)
   instructions @ (
@@ -248,6 +248,31 @@ fun instructions_of_expression :: "codegen_context \<Rightarrow> astExpression =
     )" |
   "instructions_of_expression context (EffectUnwrap expression) = (instructions_of_expression context expression)"
 
+definition save_state_scalar_at_address :: "nat \<Rightarrow> inst list" where
+  "save_state_scalar_at_address addr = [
+    Stack (PUSH_N (number_to_words addr)),
+    Storage SSTORE
+  ]"
+
+fun save_state_at_address :: "inst list \<Rightarrow> astType \<Rightarrow> nat \<Rightarrow> inst list" where
+  "save_state_at_address instructions TInt addr = instructions @ save_state_scalar_at_address addr" |
+  "save_state_at_address instructions TBool addr = instructions @ save_state_scalar_at_address addr" |
+  "save_state_at_address instructions (TRecord record_values) addr = (let contents_address = unat (STORAGE_ADDRESS_MASK OR keccak (number_to_words (addr))) in 
+    (instructions @ List.concat (List.map 
+    (\<lambda>(index, (_, type)). (
+      (save_state_at_address
+        (access_record [Dup 0] index)
+        type
+        (contents_address + index))
+    )) record_values)
+  ) @ [
+    Stack POP,
+    Stack (PUSH_N (number_to_words contents_address)),
+    Stack (PUSH_N (number_to_words addr)),
+    Storage SSTORE
+  ])" |
+  "save_state_at_address _ _ _ = REVERT_WITH_NO_DATA"
+
 (* This assumes the argument is at the top of the stack,
    and finishes with the result on the top of the stack.
    Leaving everything else unaffected. *)
@@ -273,7 +298,15 @@ fun function_body_to_instructions :: "codegen_context \<Rightarrow> ast_function
   "function_body_to_instructions context (FunctionModifier (modifiee_name, WithState)) _ = create_record [
     (0, fetch_state (r_codegen_state_type context)),
     (1, [Swap 0] (* argument is second element on the stack at point of execution *))
-  ] @ instructions_to_call_function_of_name context modifiee_name"
+  ] @ instructions_to_call_function_of_name context modifiee_name" |
+  "function_body_to_instructions context (FunctionModifier (modifiee_name, UpdatingState)) _ = create_record [
+    (0, fetch_state (r_codegen_state_type context)),
+    (1, [Swap 0] (* argument is second element on the stack at point of execution *))
+  ] @ instructions_to_call_function_of_name context modifiee_name @
+      (* The first element of the result record is the new state *)
+      save_state_at_address (access_record [Dup 0] 0) (r_codegen_state_type context) STORAGE_STATE_ADDRESS @
+      (* The second element is the data to return *)
+      access_record [] 1" 
     
 
 fun populate_function_with_instructions :: "codegen_context \<Rightarrow> program_function \<Rightarrow> program_function" where
@@ -339,31 +372,6 @@ fun function_string_representation :: "String.literal \<Rightarrow> astType \<Ri
 
 fun function_signature :: "String.literal \<Rightarrow> astType \<Rightarrow> astType \<Rightarrow> byte list" where
   "function_signature name input_type output_type = take 4 (word_rsplit (keccak (map (\<lambda>c. word_of_int (nat_of_char c)) (function_string_representation name input_type output_type))))"
-
-fun save_state_scalar_at_address :: "nat \<Rightarrow> inst list" where
-  "save_state_scalar_at_address addr = [
-    Stack (PUSH_N (number_to_words addr)),
-    Storage SSTORE
-  ]"
-
-fun save_state_at_address :: "inst list \<Rightarrow> astType \<Rightarrow> nat \<Rightarrow> inst list" where
-  "save_state_at_address instructions TInt addr = instructions @ save_state_scalar_at_address addr" |
-  "save_state_at_address instructions TBool addr = instructions @ save_state_scalar_at_address addr" |
-  "save_state_at_address instructions (TRecord record_values) addr = (let contents_address = unat (STORAGE_ADDRESS_MASK OR keccak (number_to_words (addr))) in 
-    (instructions @ List.concat (List.map 
-    (\<lambda>(index, (_, type)). (
-      (save_state_at_address
-        (access_record [Dup 0] index)
-        type
-        (contents_address + index))
-    )) record_values)
-  ) @ [
-    Stack POP,
-    Stack (PUSH_N (number_to_words contents_address)),
-    Stack (PUSH_N (number_to_words addr)),
-    Storage SSTORE
-  ])" |
-  "save_state_at_address _ _ _ = REVERT_WITH_NO_DATA"
     
 
 (* This function returns instructions that assumes there is a value
