@@ -4,7 +4,12 @@
       match values with
         | [] -> []
         | x::xs -> (n, x) :: inner xs (Compiler_theory.Arith.suc (n))
-    in inner values Compiler_theory.Arith.zero_nat
+    in inner values Compiler_theory.Arith.zero_nat;;
+  
+  let rec add_zeroes_to_list values =
+    match values with
+      | [] -> []
+      | x::xs -> (Compiler_theory.Arith.zero_nat, x) :: add_zeroes_to_list xs
 %}
 
 %token LEFT_PAREN
@@ -34,6 +39,7 @@
 %token UPDATING_STATE
 %token STATE
 %token AS
+%token WITH
 %token <Compiler_theory.Ast.astBinaryOperator> BINARY_OPERATOR
 
 %start <unit Compiler_theory.Ast.ast_program_ext option> prog
@@ -99,9 +105,13 @@ record_type_value:
   ;
 
 record_expression:
-  | RECORD_OPEN; values = separated_list(COMMA, record_expression_value); RECORD_CLOSE
+  | values = record_literal_list
     { Compiler_theory.Ast.RecordLiteral (add_indices_to_list values) }
   ;
+
+record_literal_list:
+  | RECORD_OPEN; values = separated_list(COMMA, record_expression_value); RECORD_CLOSE
+    { values }
 
 record_expression_value:
   | iden = IDENTIFIER; EQUALS; assignment = expression; { (iden, assignment) }
@@ -110,11 +120,16 @@ record_expression_value:
 expression_with_operator:
   | e1 = expression_with_operator; operator = BINARY_OPERATOR; e2 = expression_with_value
     { Compiler_theory.Ast.BinaryOperator (operator, (e1, e2)) }
-  | e = expression_with_value { e }
+  | e = expression_record_update { e }
   ;
 
 record_access:
-  | e = expression_with_value; PERIOD; name = IDENTIFIER; { Compiler_theory.Ast.RecordAccess (e, (name, [])) }
+  | e = expression_with_value; PERIOD; name = IDENTIFIER; { Compiler_theory.Ast.RecordAccess (e, (name, Compiler_theory.Arith.zero_nat)) }
+
+expression_record_update:
+  | e = expression_record_update; WITH; values = record_literal_list
+    { Compiler_theory.Ast.RecordUpdate (e, (Compiler_theory.Arith.zero_nat, add_zeroes_to_list values)) }
+  | e = expression_with_value { e }
 
 expression_with_value:
   | v = value

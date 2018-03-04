@@ -16,7 +16,7 @@ let parse_with_error lexbuf =
     fprintf stderr "%a: syntax error\n" print_position lexbuf;
     exit (-1)
 
-let rec parse_and_print verbose lexbuf =
+let parse_and_print verbose lexbuf =
   match parse_with_error lexbuf with
   | Some ast -> (
     if verbose then (

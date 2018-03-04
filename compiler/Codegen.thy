@@ -74,7 +74,11 @@ fun count_max_let_binding :: "astExpression \<Rightarrow> nat" where
   "count_max_let_binding (Variable _) = 0" |
   "count_max_let_binding (LetBinding ((name, assignment), inner_expression)) = 1 + max (count_max_let_binding assignment) (count_max_let_binding inner_expression)" |
   "count_max_let_binding (FunctionApplication (_, argument)) = count_max_let_binding argument" |
-  "count_max_let_binding UnitLiteral = 0"
+  "count_max_let_binding (RecordAccess (expression, _)) = count_max_let_binding expression" |
+  "count_max_let_binding (RecordLiteral (values)) = Max (set (map (\<lambda>(_, (_, expression)). count_max_let_binding expression) values))" |
+  "count_max_let_binding (EffectUnwrap expression) = count_max_let_binding expression" |
+  "count_max_let_binding (RecordUpdate (expression, _, values)) = 
+    Max ({ count_max_let_binding expression } \<union> (set (map (\<lambda>(_, (_, expression)). count_max_let_binding expression) values)))"
 
 fun place_offset_from_stored_address :: "nat \<Rightarrow> nat \<Rightarrow> inst list" where
   "place_offset_from_stored_address address offset = [
@@ -118,9 +122,8 @@ fun instructions_to_call_function_of_name :: "codegen_context \<Rightarrow> Stri
       Memory MSTORE
     ]"
 
-definition create_record :: "(nat * inst list) list \<Rightarrow> inst list" where
-  "create_record values =
-    [
+definition create_record :: "(nat * inst list) list \<Rightarrow> bool \<Rightarrow> nat \<Rightarrow> inst list" where
+  "create_record values partial num_values = [
       (* First reserve the memory we need for this record*)
       (* [Next free address pointer] *)
       Stack (PUSH_N (number_to_words (NEXT_FREE_MEMORY_ADDRESS))),
@@ -129,20 +132,27 @@ definition create_record :: "(nat * inst list) list \<Rightarrow> inst list" whe
       (* [free address, free address] *)
       Dup 0,
       (* [record size, free address, free address] *)
-      Stack (PUSH_N (number_to_words (length (values) * 40))),
+      Stack (PUSH_N (number_to_words (num_values * 40 + 32))),
       (* [new free address, free address] *)
       Arith ADD,
       (* [free address pointer, new free address, free address] *)
       Stack (PUSH_N (number_to_words (NEXT_FREE_MEMORY_ADDRESS))),
       (* [free address] *)
       Memory MSTORE
-    ] @ List.concat (map (\<lambda>(i, instructions).
+    ] @ (if partial then ([
+      (* [free address, base record] *)
+      (* [base record, free address] *)
+      Swap 0,
+      (* [free address, base record, free address *)
+      Dup 1,
+      (* [free address] *)
+      Memory MSTORE]) else []) @ List.concat (map (\<lambda>(i, instructions).
       (* [value, free address] *)
       instructions @ [
       (* [free address, value, free address] *)
       Dup 1,
       (* [record offset, free address, value, free address] *)
-      Stack (PUSH_N (number_to_words (i * 40))),
+      Stack (PUSH_N (number_to_words (i * 40 + 32))),
       (* [value address, value, free address] *)
       Arith ADD,
       (* [value address, value address, value, free address] *)
@@ -161,50 +171,98 @@ definition create_record :: "(nat * inst list) list \<Rightarrow> inst list" whe
       Memory MSTORE
     ]) values)"
 
+definition create_full_record :: "(nat * inst list) list \<Rightarrow> inst list" where
+  "create_full_record values = create_record values False (size values)"
+
 fun fetch_state :: "astType \<Rightarrow> inst list" where
   "fetch_state _ = [
     Stack (PUSH_N (number_to_words (STORAGE_STATE_ADDRESS))),
     Storage SLOAD
   ]"
 
-definition access_record :: "inst list \<Rightarrow> nat \<Rightarrow> inst list" where
-  "access_record instructions i = 
-  (* [record address] *)
-  instructions @ (
-    let memory_access_instructions = [
-          Pc JUMPDEST,
-          (* [value offset, record address] *)
-          Stack (PUSH_N (number_to_words (i * 40 + 8))),
-          (* [value location] *)
-          Arith ADD,
-          (* [value] *)
-          Memory MLOAD
-        ];
-      storage_access_instructions = [
-          Stack (PUSH_N (number_to_words (i))),
-          Arith ADD,
-          Storage SLOAD,
-          Stack (PUSH_N (number_to_words (size (bytes_of_instructions memory_access_instructions) + 3))),
+definition branch_if :: "inst list \<Rightarrow> inst list \<Rightarrow> inst list" where
+  "branch_if true_instructions false_instructions = ( 
+    let jumped_true_instructions = [Pc JUMPDEST] @ true_instructions;
+        jumped_false_instructions = false_instructions @ [
+          Stack (PUSH_N (number_to_words (size (bytes_of_instructions jumped_true_instructions) + 3))),
           Pc PC,
           Arith ADD,
           Pc JUMP
-        ] in (
-      [
-        (* [record address, record address] *)
-        Dup 0,
-        Stack (PUSH_N (word_rsplit STORAGE_ADDRESS_MASK)),
-        Bits inst_AND,
-        Stack (PUSH_N [0]),
-        (* [is address memory, record address] *)
-        Arith inst_EQ,
-        Stack (PUSH_N (number_to_words (size (bytes_of_instructions storage_access_instructions) + 3))),
-        Pc PC,
-        Arith ADD,
-        Pc JUMPI
-      ] @ storage_access_instructions @ memory_access_instructions @ [Pc JUMPDEST]
-    ))"
-      
+        ] in [
+      Stack (PUSH_N (number_to_words (size (bytes_of_instructions jumped_false_instructions) + 3))),
+      Pc PC,
+      Arith ADD,
+      Pc JUMPI
+    ] @ jumped_false_instructions @ jumped_true_instructions @ [Pc JUMPDEST])"
 
+
+
+definition access_record_raw :: "inst list \<Rightarrow> nat \<Rightarrow> inst list \<Rightarrow> inst list \<Rightarrow> inst list" where
+  "access_record_raw instructions i memory_instructions storage_instructions = 
+  (* [record address] *)
+  instructions @ 
+  [
+    Pc JUMPDEST,
+    Pc PC,
+    Stack (PUSH_N [1]),
+    Swap 0,
+    Arith SUB,
+    (* [record address, loopback address] *)
+    Swap 0,
+    (* [record address, record address, loopback address] *)
+    Dup 0,
+    Stack (PUSH_N (word_rsplit STORAGE_ADDRESS_MASK)),
+    Bits inst_AND,
+    Stack (PUSH_N [0]),
+    (* [is address memory, record address, loopback address] *)
+    Arith inst_EQ
+  ] @ (
+    branch_if (
+      [
+        Dup 0,
+        (* [value offset, record address, record address, loopback] *)
+        Stack (PUSH_N (number_to_words (i * 40 + 32))),
+        (* [value location, record address, loopback] *)
+        Arith ADD,
+        (* [is_valid, record address, loopback] *)
+        Memory MLOAD
+      ] @ branch_if
+        ([
+          Swap 0,
+          Stack POP
+        ] @ memory_instructions)
+        [
+          Memory MLOAD,
+          Swap 0,
+          Pc JUMP
+        ]
+    )
+  ) 
+  ( 
+    [
+      Swap 0,
+      Stack POP
+    ] @ storage_instructions
+  )"
+
+definition access_record :: "inst list \<Rightarrow> nat \<Rightarrow> inst list" where
+  "access_record instructions i =
+    access_record_raw
+      instructions
+      i
+      [
+        Stack (PUSH_N (number_to_words (32 + i * 40 + 8))),
+        (* [value location, record address] *)
+        Arith ADD,
+        (* [value, record address] *)
+        Memory MLOAD
+      ]
+      [
+        Stack (PUSH_N (number_to_words (i))),
+        Arith ADD,
+        Storage SLOAD
+      ]
+  "
 
 fun instructions_of_expression :: "codegen_context \<Rightarrow> astExpression => inst list" where
   "instructions_of_expression context (BinaryOperator (operator, e1, e2)) =
@@ -236,17 +294,22 @@ fun instructions_of_expression :: "codegen_context \<Rightarrow> astExpression =
     (instructions_to_call_function_of_name context name)
   " |
   "instructions_of_expression context (RecordLiteral (values)) =
-    create_record (
+    create_full_record (
       map
         (\<lambda>(i, (_, expression)). (i, instructions_of_expression context expression)) 
         values
     )" |
-  "instructions_of_expression context (RecordAccess (expression, name, names)) = (
-      case List.find (\<lambda>(i, value_name). value_name = name) names of
-        Some (i, _) \<Rightarrow> access_record (instructions_of_expression context expression) i|
-        None \<Rightarrow> REVERT_WITH_NO_DATA
-    )" |
-  "instructions_of_expression context (EffectUnwrap expression) = (instructions_of_expression context expression)"
+  "instructions_of_expression context (RecordAccess (expression, name, i)) =
+    access_record (instructions_of_expression context expression) i" |
+  "instructions_of_expression context (EffectUnwrap expression) = (instructions_of_expression context expression)" |
+  "instructions_of_expression context (RecordUpdate (expression, num_values, values)) = 
+    (* Get address of record to be updated *)
+    (instructions_of_expression context expression) @
+    create_record (
+      map (\<lambda>(i, (_, value_expression)). (i, instructions_of_expression context value_expression))
+      values
+    ) True num_values
+  "
 
 definition save_state_scalar_at_address :: "nat \<Rightarrow> inst list" where
   "save_state_scalar_at_address addr = [
@@ -260,10 +323,25 @@ fun save_state_at_address :: "inst list \<Rightarrow> astType \<Rightarrow> nat 
   "save_state_at_address instructions (TRecord record_values) addr = (let contents_address = unat (STORAGE_ADDRESS_MASK OR keccak (number_to_words (addr))) in 
     (instructions @ List.concat (List.map 
     (\<lambda>(index, (_, type)). (
-      (save_state_at_address
-        (access_record [Dup 0] index)
-        type
-        (contents_address + index))
+      (access_record_raw
+        [Dup 0]
+        index
+        [
+          Stack (PUSH_N (number_to_words (32 + index * 40 + 8))),
+          Arith ADD,
+          Memory MLOAD,
+          Stack (PUSH_N [1])
+        ]
+        [
+          Stack POP,
+          Stack (PUSH_N [0])
+        ]) @
+      (branch_if
+        (save_state_at_address
+          []
+          type
+          (contents_address + index))
+        [])
     )) record_values)
   ) @ [
     Stack POP,
@@ -295,11 +373,11 @@ fun function_body_to_instructions :: "codegen_context \<Rightarrow> ast_function
       \<rparr>) (expression)
     )
     )" |
-  "function_body_to_instructions context (FunctionModifier (modifiee_name, WithState)) _ = create_record [
+  "function_body_to_instructions context (FunctionModifier (modifiee_name, WithState)) _ = create_full_record [
     (0, fetch_state (r_codegen_state_type context)),
     (1, [Swap 0] (* argument is second element on the stack at point of execution *))
   ] @ instructions_to_call_function_of_name context modifiee_name" |
-  "function_body_to_instructions context (FunctionModifier (modifiee_name, UpdatingState)) _ = create_record [
+  "function_body_to_instructions context (FunctionModifier (modifiee_name, UpdatingState)) _ = create_full_record [
     (0, fetch_state (r_codegen_state_type context)),
     (1, [Swap 0] (* argument is second element on the stack at point of execution *))
   ] @ instructions_to_call_function_of_name context modifiee_name @
@@ -415,7 +493,7 @@ fun extract_type_from_call_data :: "astType \<Rightarrow> inst list" where
     Stack CALLDATALOAD
   ]" |
   "extract_type_from_call_data (TRecord values) =
-    create_record (
+    create_full_record (
       map
         (\<lambda>(i, (_, expression)). (i, [Stack (PUSH_N (number_to_words (i * 32 + 4))), Stack CALLDATALOAD])) 
         values

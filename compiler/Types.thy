@@ -105,7 +105,7 @@ fun either_type_of_expression :: "type_context \<Rightarrow> astExpression => (t
     case (either_type_of_expression context record_expression) of
       Right ((TRecord record_values, effects), record_expression) \<Rightarrow> (
         case List.find (\<lambda>(i, (value_name, value_type)). name = value_name) record_values of
-          Some (_, (_, value_type)) \<Rightarrow> Right ((value_type, effects), RecordAccess (record_expression, name, map (\<lambda>(i, (value_name, _)). (i, value_name)) record_values)) |
+          Some (i, (_, value_type)) \<Rightarrow> Right ((value_type, effects), RecordAccess (record_expression, (name, i))) |
           None \<Rightarrow> Left ()
       ) |
       Right _ \<Rightarrow> Left () |
@@ -120,7 +120,32 @@ fun either_type_of_expression :: "type_context \<Rightarrow> astExpression => (t
       ) |
       Right _ \<Rightarrow> Left () |
       Left _ \<Rightarrow> Left ()
+    )" |
+  "either_type_of_expression context (RecordUpdate (record_expression, _, update_expressions)) = (
+    case (either_type_of_expression context record_expression) of
+      Right ((TRecord record_values, record_expression_effects), record_expression) \<Rightarrow> (
+        let names = List.map (\<lambda>(_, (name, _)). name) update_expressions;
+            typed_values = List.map_filter (\<lambda>x. x) (List.map (\<lambda>(_, (name, expression)). (
+              case (either_type_of_expression context expression) of
+                Right ((update_value_type, update_value_effects), update_value_expression) \<Rightarrow> (
+                  case (find (\<lambda>(_, (record_value_name, record_value_type)). record_value_name = name \<and> record_value_type = update_value_type) record_values) of
+                    Some (index, _) \<Rightarrow> Some ((index, name), ((update_value_type, update_value_effects), update_value_expression)) |
+                    None \<Rightarrow> None
+                  ) |
+                Left _ \<Rightarrow> None
+              )) update_expressions) in
+          (if (distinct names \<and> (size typed_values = size update_expressions)) then
+            Right (
+              (
+                TRecord record_values,
+                record_expression_effects \<union> (fold (\<lambda>(_, ((_, effects), _)). \<lambda>(all_effects). effects \<union> all_effects) typed_values {})
+              ), 
+              RecordUpdate (record_expression, size record_values, map (\<lambda>((index, name), (_, update_value_expression)). (index, (name, update_value_expression))) typed_values)
+            ) else Left ())
+      ) |
+      Left _ \<Rightarrow> Left ()
     )"
+
 
 
 

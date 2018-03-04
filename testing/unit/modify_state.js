@@ -17,3 +17,19 @@ test('State is modified', async t => {
     '6',
   );
 });
+
+test('State is modified with record updates', async t => {
+  const { contract, coinbase, client } = await testDiamond({ pathName: __dirname + '/programs/modify_state_record_update.dia' });
+
+  t.deepEqual(
+    await contract.methods.get_x().call({ from: coinbase, gas: 40000 }),
+    '5',
+  );
+
+  await contract.methods.inc_x().send({ from: coinbase, gas: 40000 });
+
+  t.deepEqual(
+    await contract.methods.get_x().call({ from: coinbase, gas: 40000 }),
+    '6',
+  );
+})

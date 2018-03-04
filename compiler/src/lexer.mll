@@ -50,6 +50,7 @@ rule read =
   | "!" { EXCLAMATION }
   | "State" { STATE }
   | "as" { AS }
+  | "with" { WITH }
   | "with_state" { WITH_STATE }
   | "updating_state" { UPDATING_STATE }
   | identifier { IDENTIFIER (Lexing.lexeme lexbuf) }

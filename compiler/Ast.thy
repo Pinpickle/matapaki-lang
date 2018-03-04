@@ -22,9 +22,10 @@ datatype astExpression
   | Variable "String.literal"
   | FunctionApplication "String.literal * astExpression"
   | RecordLiteral "(nat * (String.literal * astExpression)) list"
-  (* Record expression, record name, ordered list of names in record *)
-  | RecordAccess "(astExpression * String.literal * ((nat * String.literal) list))"
+  (* Record expression, (value name, value index) *)
+  | RecordAccess "(astExpression * (String.literal * nat))"
   | EffectUnwrap "astExpression"
+  | RecordUpdate "astExpression * nat * (nat * (String.literal * astExpression)) list"
 
 datatype ast_function_modifier = WithState | UpdatingState
 
