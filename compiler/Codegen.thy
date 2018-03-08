@@ -60,7 +60,8 @@ fun location_of_function_name_in_context :: "codegen_context \<Rightarrow> Strin
 
 fun bytes_of_value :: "astValue \<Rightarrow> 8 word list" where
   "bytes_of_value (Integer i) = number_to_words i" |
-  "bytes_of_value (Bool b) = (if b then [1] else [0])"
+  "bytes_of_value (Bool b) = (if b then [1] else [0])" |
+  "bytes_of_value (AddressLiteral a) = number_to_words a"
 
 fun instructions_of_binary_operator :: "astBinaryOperator \<Rightarrow> inst list" where
   "instructions_of_binary_operator Plus = [Arith ADD]" |
@@ -75,10 +76,14 @@ fun count_max_let_binding :: "astExpression \<Rightarrow> nat" where
   "count_max_let_binding (LetBinding ((name, assignment), inner_expression)) = 1 + max (count_max_let_binding assignment) (count_max_let_binding inner_expression)" |
   "count_max_let_binding (FunctionApplication (_, argument)) = count_max_let_binding argument" |
   "count_max_let_binding (RecordAccess (expression, _)) = count_max_let_binding expression" |
-  "count_max_let_binding (RecordLiteral (values)) = Max (set (map (\<lambda>(_, (_, expression)). count_max_let_binding expression) values))" |
+  "count_max_let_binding (RecordLiteral (values)) = fold max (map (\<lambda>(_, (_, expression)). count_max_let_binding expression) values) 0" |
   "count_max_let_binding (EffectUnwrap expression) = count_max_let_binding expression" |
-  "count_max_let_binding (RecordUpdate (expression, _, values)) = 
-    Max ({ count_max_let_binding expression } \<union> (set (map (\<lambda>(_, (_, expression)). count_max_let_binding expression) values)))"
+  "count_max_let_binding (RecordUpdate (expression, _, values)) = fold max (map (\<lambda>(_, (_, expression)). count_max_let_binding expression) values) (count_max_let_binding expression)" |
+  "count_max_let_binding (SendEther (address_expression, value_expression)) =
+    max (count_max_let_binding address_expression) (count_max_let_binding value_expression)" |
+  "count_max_let_binding (IfExpression (condition_expression, true_expression, false_expression)) =
+    max (count_max_let_binding condition_expression) (max (count_max_let_binding true_expression) (count_max_let_binding false_expression))" |
+  "count_max_let_binding (SenderExpression) = 0"
 
 fun place_offset_from_stored_address :: "nat \<Rightarrow> nat \<Rightarrow> inst list" where
   "place_offset_from_stored_address address offset = [
@@ -195,7 +200,31 @@ definition branch_if :: "inst list \<Rightarrow> inst list \<Rightarrow> inst li
       Pc JUMPI
     ] @ jumped_false_instructions @ jumped_true_instructions @ [Pc JUMPDEST])"
 
+definition check_reentrancy :: "inst list \<Rightarrow> inst list" where
+  "check_reentrancy instructions = [
+    Stack (PUSH_N (number_to_words STORAGE_RE_ENTRANCY_FLAG_STATE_ADDRESS)),
+    Storage SLOAD,
+    Stack (PUSH_N [2]),
+    Arith inst_EQ
+  ] @ branch_if
+    (* Re-entrancy flag is set, don't proceed *)
+    REVERT_WITH_NO_DATA
+    (* No flag, we're good to keep going *)
+    []
+  @ instructions"
 
+definition wrap_reentrancy :: "inst list \<Rightarrow> inst list" where
+  "wrap_reentrancy instructions =
+    check_reentrancy ([
+      Stack (PUSH_N [2]),
+      Stack (PUSH_N (number_to_words STORAGE_RE_ENTRANCY_FLAG_STATE_ADDRESS)),
+      Storage SSTORE
+    ] @ instructions @ [
+      Stack (PUSH_N [1]),
+      Stack (PUSH_N (number_to_words STORAGE_RE_ENTRANCY_FLAG_STATE_ADDRESS)),
+      Storage SSTORE
+    ])"
+      
 
 definition access_record_raw :: "inst list \<Rightarrow> nat \<Rightarrow> inst list \<Rightarrow> inst list \<Rightarrow> inst list" where
   "access_record_raw instructions i memory_instructions storage_instructions = 
@@ -309,7 +338,30 @@ fun instructions_of_expression :: "codegen_context \<Rightarrow> astExpression =
       map (\<lambda>(i, (_, value_expression)). (i, instructions_of_expression context value_expression))
       values
     ) True num_values
-  "
+  " |
+  "instructions_of_expression context (SendEther (address_expression, value_expression)) = [
+    Stack (PUSH_N [0]),
+    Stack (PUSH_N [0]),
+    Stack (PUSH_N [0]),
+    Stack (PUSH_N [0])
+  ] @ instructions_of_expression context value_expression
+    @ instructions_of_expression context address_expression
+    @ [
+    (* For the time being, forward all of the gas *)
+    Stack (PUSH_N (word_rsplit ((word_cat (1::1 word) (0::255 word))::256 word))),
+    Misc CALL
+  ] @ branch_if [
+    (* Call was successful, push unit onto the stack *)
+    Stack (PUSH_N [NULL_POINTER_ADDRESS])
+  ] REVERT_WITH_NO_DATA" |
+  "instructions_of_expression context (IfExpression (condition_expression, true_expression, false_expression)) =
+    instructions_of_expression context condition_expression @
+    branch_if
+      (instructions_of_expression context true_expression)
+      (instructions_of_expression context false_expression)
+  " |
+  "instructions_of_expression context SenderExpression = [Info CALLER]"
+ 
 
 definition save_state_scalar_at_address :: "nat \<Rightarrow> inst list" where
   "save_state_scalar_at_address addr = [
@@ -373,18 +425,18 @@ fun function_body_to_instructions :: "codegen_context \<Rightarrow> ast_function
       \<rparr>) (expression)
     )
     )" |
-  "function_body_to_instructions context (FunctionModifier (modifiee_name, WithState)) _ = create_full_record [
+  "function_body_to_instructions context (FunctionModifier (modifiee_name, WithState)) _ = check_reentrancy (create_full_record [
     (0, fetch_state (r_codegen_state_type context)),
     (1, [Swap 0] (* argument is second element on the stack at point of execution *))
-  ] @ instructions_to_call_function_of_name context modifiee_name" |
-  "function_body_to_instructions context (FunctionModifier (modifiee_name, UpdatingState)) _ = create_full_record [
+  ] @ instructions_to_call_function_of_name context modifiee_name)" |
+  "function_body_to_instructions context (FunctionModifier (modifiee_name, UpdatingState)) _ = wrap_reentrancy (create_full_record [
     (0, fetch_state (r_codegen_state_type context)),
     (1, [Swap 0] (* argument is second element on the stack at point of execution *))
   ] @ instructions_to_call_function_of_name context modifiee_name @
       (* The first element of the result record is the new state *)
       save_state_at_address (access_record [Dup 0] 0) (r_codegen_state_type context) STORAGE_STATE_ADDRESS @
       (* The second element is the data to return *)
-      access_record [] 1" 
+      access_record [] 1)" 
     
 
 fun populate_function_with_instructions :: "codegen_context \<Rightarrow> program_function \<Rightarrow> program_function" where
@@ -571,7 +623,10 @@ fun init_instructions_naive :: "codegen_context \<Rightarrow> nat \<Rightarrow> 
     Arith ADD,
     (* Jump to JUMPDEST at the bottom of this section if marker is 1
        [pre-marker pc] *)
-    Pc JUMPI ] @
+    Pc JUMPI,
+    Stack (PUSH_N [1]),
+    Stack (PUSH_N (number_to_words STORAGE_RE_ENTRANCY_FLAG_STATE_ADDRESS)),
+    Storage SSTORE] @
     (* Run user-defined init *)
     program_defined_init context @
     (* Put existing code into memory  *)

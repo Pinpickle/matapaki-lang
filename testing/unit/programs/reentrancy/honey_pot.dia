@@ -1,0 +1,28 @@
+State {
+  money_claimed: Bool
+}
+
+fun init: { } -> { money_claimed: Bool }
+  arg = {
+    money_claimed = false
+  }
+
+fun claim_money_from_state: { state: { money_claimed: Bool }, arg: { } } -> Effect (ReadEnv, Paying) { state: { money_claimed: Bool }, value: Bool }
+  arg =
+    if arg.state.money_claimed then
+      ({
+        state = arg.state,
+        value = false
+      })
+    else (
+      let sent = (send 1 to sender!)!;
+      ({
+        state = arg.state with {
+          money_claimed = true
+        },
+        value = true
+      })
+    )
+
+export fun claim_money: { } -> Effect (ReadEnv, Read, Write, Paying) Bool
+  as claim_money_from_state updating_state

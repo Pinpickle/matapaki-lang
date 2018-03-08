@@ -2,11 +2,14 @@ theory Ast
   imports Main List
 begin
 
-datatype astValue = Integer "int" | Bool "bool"
+datatype astValue =
+  Integer "int" |
+  AddressLiteral "int" |
+  Bool "bool"
 
 datatype astBinaryOperator = Plus | Minus | Or | And
 
-datatype ast_effect = LocalRead | LocalWrite
+datatype ast_effect = LocalRead | LocalWrite | Paying | ReadEnvironment
 
 datatype astType
   = TInt
@@ -14,6 +17,9 @@ datatype astType
   | Function "astType * astType"
   | TRecord "(nat * (String.literal * astType)) list"
   | TEffect "(ast_effect set) * astType"
+  | TAddress
+
+definition "TUnit = TRecord []"
 
 datatype astExpression
   = BinaryOperator "astBinaryOperator * astExpression * astExpression"
@@ -26,6 +32,9 @@ datatype astExpression
   | RecordAccess "(astExpression * (String.literal * nat))"
   | EffectUnwrap "astExpression"
   | RecordUpdate "astExpression * nat * (nat * (String.literal * astExpression)) list"
+  | SendEther "astExpression * astExpression"
+  | IfExpression "astExpression * astExpression * astExpression"
+  | SenderExpression
 
 datatype ast_function_modifier = WithState | UpdatingState
 

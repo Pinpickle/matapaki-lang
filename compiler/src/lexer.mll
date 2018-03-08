@@ -22,7 +22,7 @@ rule read =
   parse
   | white { read lexbuf }
   | newline { next_line lexbuf; read lexbuf }
-  | int { INT (int_of_string (Lexing.lexeme lexbuf)) }
+  | int { INT (Big_int.big_int_of_string (Lexing.lexeme lexbuf)) }
   | "let" { LET }
   | ";" { SEMICOLON }
   | "+" { BINARY_OPERATOR Ast.Plus }
@@ -31,6 +31,8 @@ rule read =
   | "||" { BINARY_OPERATOR Ast.Or }
   | "Write" { WRITE }
   | "Read" { READ }
+  | "Paying" { PAYING }
+  | "ReadEnv" { READ_ENVIRONMENT }
   | "Effect" { TEFFECT }
   | "=" { EQUALS }
   | "true" { BOOL true }
@@ -51,6 +53,13 @@ rule read =
   | "State" { STATE }
   | "as" { AS }
   | "with" { WITH }
+  | "@" { AT }
+  | "send" { SEND }
+  | "to" { TO }
+  | "if" { IF }
+  | "then" { THEN }
+  | "else" { ELSE }
+  | "sender" { SENDER }
   | "with_state" { WITH_STATE }
   | "updating_state" { UPDATING_STATE }
   | identifier { IDENTIFIER (Lexing.lexeme lexbuf) }

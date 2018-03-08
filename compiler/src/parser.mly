@@ -15,7 +15,7 @@
 %token LEFT_PAREN
 %token RIGHT_PAREN
 %token <bool> BOOL
-%token <int> INT
+%token <Big_int.big_int> INT
 %token TINT
 %token TBOOL
 %token LET
@@ -40,6 +40,15 @@
 %token STATE
 %token AS
 %token WITH
+%token AT
+%token SEND
+%token TO
+%token PAYING
+%token IF
+%token THEN
+%token ELSE
+%token SENDER
+%token READ_ENVIRONMENT
 %token <Compiler_theory.Ast.astBinaryOperator> BINARY_OPERATOR
 
 %start <unit Compiler_theory.Ast.ast_program_ext option> prog
@@ -50,6 +59,10 @@ prog: state_type = state_declaration; functions = function_list; EOF { Some (Com
 expression:
   | LET; iden = IDENTIFIER; EQUALS; assignment = expression; SEMICOLON; inner = expression
     { Compiler_theory.Ast.LetBinding ((iden, assignment), inner) }
+  | SEND; value_expression = expression; TO; address_expression = expression
+    { Compiler_theory.Ast.SendEther (address_expression, value_expression) }
+  | IF; condition_expression = expression; THEN; true_expression = expression; ELSE; false_expression = expression
+    { Compiler_theory.Ast.IfExpression (condition_expression, (true_expression, false_expression)) }
   | e = expression_with_operator
     { e }
   ;
@@ -93,6 +106,8 @@ effect_type:
 effect:
   | WRITE { Compiler_theory.Ast.LocalWrite }
   | READ { Compiler_theory.Ast.LocalRead }
+  | PAYING { Compiler_theory.Ast.Paying }
+  | READ_ENVIRONMENT { Compiler_theory.Ast.ReadEnvironment }
   ;
 
 record_type:
@@ -140,6 +155,7 @@ expression_with_value:
   | e = record_access
     { e }
   | e = expression_with_value; EXCLAMATION; { Compiler_theory.Ast.EffectUnwrap e }
+  | SENDER; { Compiler_theory.Ast.SenderExpression }
   | name = IDENTIFIER; argument = expression;
     { Compiler_theory.Ast.FunctionApplication (name, argument) }
   | iden = IDENTIFIER;
@@ -148,7 +164,9 @@ expression_with_value:
 
 value:
   | n = INT
-    { Compiler_theory.Ast.Integer (Compiler_theory.Arith.Int_of_integer (Big_int.big_int_of_int n)) }
+    { Compiler_theory.Ast.Integer (Compiler_theory.Arith.Int_of_integer (n)) }
   | b = BOOL
     { Compiler_theory.Ast.Bool b }
+  | AT; n = INT
+    { Compiler_theory.Ast.AddressLiteral (Compiler_theory.Arith.Int_of_integer (n)) }
   ;

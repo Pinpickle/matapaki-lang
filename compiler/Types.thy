@@ -41,7 +41,8 @@ fun either_type_of_either_binary_operator :: "astBinaryOperator * (typed_ast, un
 
 fun type_of_value :: "astValue \<Rightarrow> astType" where
   "type_of_value (Integer _) = TInt" |
-  "type_of_value (Bool _) = TBool"
+  "type_of_value (Bool _) = TBool" |
+  "type_of_value (AddressLiteral _) = TAddress"
 
 fun is_effectful_function_unwrapped :: "type_context \<Rightarrow> astType \<Rightarrow> bool" where
   "is_effectful_function_unwrapped context (TEffect _) = r_is_effect_unwrap context" |
@@ -72,7 +73,7 @@ fun either_type_of_expression :: "type_context \<Rightarrow> astExpression => (t
   "either_type_of_expression context (FunctionApplication (name, argument)) = (
     case (type_for_name_in_context context name) of
       Some (Function (input_type, output_type)) \<Rightarrow> (
-        if (is_effectful_function_unwrapped context input_type) then (
+        if (is_effectful_function_unwrapped context output_type) then (
           case (either_type_of_expression (context\<lparr> r_is_effect_unwrap := False \<rparr>) argument) of
             Right ((argument_type, argument_effects), argument_ast) \<Rightarrow> if (argument_type = input_type) then Right ((output_type, argument_effects), FunctionApplication (name, argument_ast))
               else Left () |
@@ -112,7 +113,7 @@ fun either_type_of_expression :: "type_context \<Rightarrow> astExpression => (t
       Left _ \<Rightarrow> Left ()
   )" |
   "either_type_of_expression context (EffectUnwrap expression) = (
-    case (either_type_of_expression context expression) of
+    case (either_type_of_expression (context\<lparr> r_is_effect_unwrap := True \<rparr>) expression) of
       Right ((TEffect (wrapped_effects, t), effects), e) \<Rightarrow> (
         if (LocalRead \<notin> wrapped_effects \<and> LocalWrite \<notin> wrapped_effects) then
           Right ((t, effects \<union> wrapped_effects), EffectUnwrap e)
@@ -144,10 +145,32 @@ fun either_type_of_expression :: "type_context \<Rightarrow> astExpression => (t
             ) else Left ())
       ) |
       Left _ \<Rightarrow> Left ()
-    )"
-
-
-
+    )" |
+  "either_type_of_expression context (SendEther (address_expression, value_expression)) = (
+    let new_context = context\<lparr> r_is_effect_unwrap := False \<rparr> in
+    case (either_type_of_expression new_context address_expression, either_type_of_expression new_context value_expression) of
+      (Right ((address_expression_type, address_expression_effects), address_expression), Right ((value_expression_type, value_expression_effects), value_expression)) \<Rightarrow>
+        if (address_expression_type = TAddress \<and> value_expression_type = TInt \<and> r_is_effect_unwrap context)  then
+          Right ((TEffect({ Paying }, TUnit), address_expression_effects \<union> value_expression_effects), SendEther (address_expression, value_expression))
+        else Left () |
+      _ \<Rightarrow> Left ()
+  )" |
+  "either_type_of_expression context (IfExpression (condition_expression, true_expression, false_expression)) = (
+    case (either_type_of_expression context condition_expression, either_type_of_expression context true_expression, either_type_of_expression context false_expression) of
+      (Right ((TBool, condition_expression_effects), condition_expression), Right ((true_expression_type, true_expression_effects), true_expression), Right ((false_expression_type, false_expression_effects), false_expression)) \<Rightarrow> (
+        if (true_expression_type = false_expression_type) then
+          Right ((true_expression_type, condition_expression_effects \<union> true_expression_effects \<union> false_expression_effects), IfExpression (condition_expression, true_expression, false_expression))
+        else
+          Left ()
+      ) |
+      _ \<Rightarrow> Left ()
+  )" |
+  "either_type_of_expression context SenderExpression = (
+    if (r_is_effect_unwrap context) then
+      Right ((TEffect ({ ReadEnvironment }, TAddress), {}), SenderExpression)
+    else
+      Left ()
+  )"
 
 (* Whether a type can be an input or output *)
 fun is_type_simple :: "astType \<Rightarrow> bool" where
@@ -233,8 +256,6 @@ fun either_type_of_program :: "ast_program \<Rightarrow> (typed_program, unit) e
           else Left ()
         ) |
         None \<Rightarrow> Left ()
-      (*if (size types = size correct_types) then
-        *)
     )
   )
   "

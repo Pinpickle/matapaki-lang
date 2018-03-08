@@ -16,7 +16,7 @@ function createBlockchainClient() {
 }
 
 function createTester(compiler) {
-  return async (compilerArgs, { deployArguments = [] } = { }) => {
+  return async (compilerArgs, { deployArguments = [], value = '0' } = { }) => {
     const client = createBlockchainClient();
     const coinbase = await client.eth.getCoinbase();
 
@@ -25,7 +25,7 @@ function createTester(compiler) {
     const contract = new client.eth.Contract(interface);
     const deployedContract = await contract
       .deploy({ data: bytecode, arguments: deployArguments })
-      .send({ from: coinbase, gas: 30000000 });
+      .send({ from: coinbase, gas: 10000000, value });
     
     deployedContract.setProvider(client.currentProvider);
 
