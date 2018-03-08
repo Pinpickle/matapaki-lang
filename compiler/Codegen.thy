@@ -26,15 +26,6 @@ definition "REVERT_WITH_NO_DATA = [Stack (PUSH_N [0]), Stack (PUSH_N [0]), REVER
    We only want to flip the first bit so 0 becomes 1 and vice versa.  *)
 definition "BOOLEAN_NOT = [Stack (PUSH_N [0]), Arith inst_EQ]"
 
-(*
-  Layout of memory during execution:
-  
-  0: Null pointer
-  1: Re-entrancy flag
-  2: Next available memory address (initialised to 4) 
-  3: Frame pointer
-*)
-
 fun number_to_words :: "int \<Rightarrow> 8 word list" where
   "number_to_words i = (word_rsplit (word_of_int i::256 word))"
 
@@ -384,10 +375,22 @@ fun save_state_at_address :: "inst list \<Rightarrow> astType \<Rightarrow> nat 
           Memory MLOAD,
           Stack (PUSH_N [1])
         ]
-        [
-          Stack POP,
-          Stack (PUSH_N [0])
-        ]) @
+        ([
+          Dup 0,
+          Stack (PUSH_N (number_to_words contents_address)),
+          Arith inst_EQ
+          (*Stack POP,
+          Stack (PUSH_N [0])*)
+        ] @ branch_if [
+            Stack POP,
+            Stack (PUSH_N [0])
+          ] [
+            Stack (PUSH_N (number_to_words (index))),
+            Arith ADD,
+            Storage SLOAD,
+            Stack (PUSH_N [1])
+          ]
+        )) @
       (branch_if
         (save_state_at_address
           []

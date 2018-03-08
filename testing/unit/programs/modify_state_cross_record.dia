@@ -1,0 +1,28 @@
+State { x: { value: Int }, y: { value: Int } }
+
+fun init: { } -> { x: { value: Int }, y: { value: Int } }
+  arg = { x = { value = 5 }, y = { value = 6 } }
+
+fun x_from_state: { state: { x: { value: Int }, y: { value: Int } }, arg: { } } -> Int
+  arg = arg.state.x.value
+
+fun y_from_state: { state: { x: { value: Int }, y: { value: Int } }, arg: { } } -> Int
+  arg = arg.state.y.value
+
+fun move_x_to_y_in_state: { state: { x: { value: Int }, y: { value: Int } }, arg: { } } -> { state: { x: { value: Int }, y: { value: Int } }, value: { } }
+  arg = {
+    state = {
+      x = arg.state.x,
+      y = arg.state.x
+    },
+    value = { }
+  }
+
+export fun get_x: { } -> Effect (Read) Int
+  as x_from_state with_state
+
+export fun get_y: { } -> Effect (Read) Int
+  as y_from_state with_state
+
+export fun move_x_to_y: { } -> Effect (Read, Write) { }
+  as move_x_to_y_in_state updating_state
