@@ -1,5 +1,5 @@
 theory Codegen
-  imports Main List "./Ast" "~~/src/HOL/Library/Code_Target_Int" "./eth-isabelle/ContractSem" "./eth-isabelle/RelationalSem" "./eth-isabelle/ProgramInAvl" "./eth-isabelle/lem/Keccak"
+  imports Main List "./Ast" "~~/src/HOL/Library/Code_Target_Numeral" "./eth-isabelle/ContractSem" "./eth-isabelle/RelationalSem" "./eth-isabelle/ProgramInAvl" "./eth-isabelle/lem/Keccak"
 begin
 
 type_synonym variable_location_list = "(String.literal  * nat) list"
@@ -360,10 +360,20 @@ definition save_state_scalar_at_address :: "nat \<Rightarrow> inst list" where
     Storage SSTORE
   ]"
 
+definition string_of_words :: "byte list \<Rightarrow> String.literal" where
+  "string_of_words ws = String.implode (map (\<lambda>w. char_of_nat (unat w)) ws)"
+
+definition words_of_string :: "String.literal \<Rightarrow> byte list" where
+  "words_of_string str = map (\<lambda>c. word_of_int (nat_of_char c)) (String.explode str)"
+
+(* We create this convoluted setup so we can replace this with an efficient implementation *)
+definition keccak_of_string ::  "String.literal \<Rightarrow> String.literal" where
+  "keccak_of_string i = string_of_words (word_rsplit (keccak (words_of_string i)))"
+
 fun save_state_at_address :: "inst list \<Rightarrow> astType \<Rightarrow> nat \<Rightarrow> inst list" where
   "save_state_at_address instructions TInt addr = instructions @ save_state_scalar_at_address addr" |
   "save_state_at_address instructions TBool addr = instructions @ save_state_scalar_at_address addr" |
-  "save_state_at_address instructions (TRecord record_values) addr = (let contents_address = unat (STORAGE_ADDRESS_MASK OR keccak (number_to_words (addr))) in 
+  "save_state_at_address instructions (TRecord record_values) addr = (let contents_address = unat (STORAGE_ADDRESS_MASK OR word_rcat (words_of_string (keccak_of_string (string_of_words(number_to_words (addr)))))) in 
     (instructions @ List.concat (List.map 
     (\<lambda>(index, (_, type)). (
       (access_record_raw
@@ -495,16 +505,16 @@ fun name_of_type_string :: "astType \<Rightarrow> string" where
 fun name_of_type :: "astType \<Rightarrow> String.literal" where
   "name_of_type type = String.implode (name_of_type_string type)"
 
-fun function_string_representation :: "String.literal \<Rightarrow> astType \<Rightarrow> astType \<Rightarrow> string" where
-  "function_string_representation name input_type output_type = List.concat [
+fun function_string_representation :: "String.literal \<Rightarrow> astType \<Rightarrow> astType \<Rightarrow> String.literal" where
+  "function_string_representation name input_type output_type = String.implode (List.concat [
     String.explode name,
     ''('',
     (name_of_type_string input_type),
     '')''
-  ]"
+  ])"
 
 fun function_signature :: "String.literal \<Rightarrow> astType \<Rightarrow> astType \<Rightarrow> byte list" where
-  "function_signature name input_type output_type = take 4 (word_rsplit (keccak (map (\<lambda>c. word_of_int (nat_of_char c)) (function_string_representation name input_type output_type))))"
+  "function_signature name input_type output_type = take 4 (map (\<lambda>c. word_of_int (nat_of_char c)) (String.explode (keccak_of_string (function_string_representation name input_type output_type))))"
     
 
 (* This function returns instructions that assumes there is a value
