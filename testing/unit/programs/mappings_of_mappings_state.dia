@@ -1,0 +1,23 @@
+State [Int -> [Int -> Int]]
+
+fun init: { } -> [Int -> [Int -> Int]]
+  arg = [Int -> [Int -> Int]]
+
+fun get_from_state: { state: [Int -> [Int -> Int]], arg: { key1: Int, key2: Int } } -> Int
+  arg = arg.state[arg.arg.key1][arg.arg.key2]
+
+fun set_in_state: { state: [Int -> [Int -> Int]], arg: { key1: Int, key2: Int, value: Int } } -> { state: [Int -> [Int -> Int]], value: { } }
+  arg = {
+    state = arg.state with [
+      arg.arg.key1 -> arg.state[arg.arg.key1] with [
+        arg.arg.key2 -> arg.arg.value
+      ]
+    ],
+    value = { }
+  }
+
+export fun get: { key1: Int, key2: Int } -> Effect (Read) Int
+  as get_from_state with_state
+
+export fun set: { key1: Int, key2: Int, value: Int } -> Effect (Read, Write) { }
+  as set_in_state updating_state

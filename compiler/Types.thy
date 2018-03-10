@@ -48,6 +48,12 @@ fun is_effectful_function_unwrapped :: "type_context \<Rightarrow> astType \<Rig
   "is_effectful_function_unwrapped context (TEffect _) = r_is_effect_unwrap context" |
   "is_effectful_function_unwrapped _ _ = True"
 
+fun is_type_key_mapping :: "astType \<Rightarrow> bool" where
+  "is_type_key_mapping TInt = True" |
+  "is_type_key_mapping TBool = True" |
+  "is_type_key_mapping TAddress = True" |
+  "is_type_key_mapping _ = False"
+
 fun either_type_of_expression :: "type_context \<Rightarrow> astExpression => (typed_ast, unit) either" where
   "either_type_of_expression context (BinaryOperator (operator, expression1, expression2)) =
     either_type_of_either_binary_operator (operator, either_type_of_expression context expression1, either_type_of_expression context expression2)" |
@@ -144,7 +150,7 @@ fun either_type_of_expression :: "type_context \<Rightarrow> astExpression => (t
               RecordUpdate (record_expression, size record_values, map (\<lambda>((index, name), (_, update_value_expression)). (index, (name, update_value_expression))) typed_values)
             ) else Left ())
       ) |
-      Left _ \<Rightarrow> Left ()
+      _ \<Rightarrow> Left ()
     )" |
   "either_type_of_expression context (SendEther (address_expression, value_expression)) = (
     let new_context = context\<lparr> r_is_effect_unwrap := False \<rparr> in
@@ -170,14 +176,54 @@ fun either_type_of_expression :: "type_context \<Rightarrow> astExpression => (t
       Right ((TEffect ({ ReadEnvironment }, TAddress), {}), SenderExpression)
     else
       Left ()
-  )"
+  )" |
+  "either_type_of_expression context (MappingAccess (mapping_expression, key_expression)) = (
+    case (either_type_of_expression context mapping_expression, either_type_of_expression context key_expression) of
+      (Right ((TMapping (mapping_expression_key_type, mapping_expression_value_type), mapping_expression_effects), mapping_expression), Right ((key_expression_type, key_expression_effects), key_expression)) \<Rightarrow> (
+        if ((mapping_expression_key_type = key_expression_type) \<and> (is_type_key_mapping key_expression_type)) then 
+          Right ((mapping_expression_value_type, mapping_expression_effects \<union> key_expression_effects), MappingAccess (mapping_expression, key_expression))
+        else
+          Left ()
+      ) |
+      _ \<Rightarrow> Left ()
+    )" |
+  "either_type_of_expression context (NewMapping (key_type, value_type)) = (
+    if (is_type_key_mapping key_type) then
+      Right ((TMapping (key_type, value_type), {}), NewMapping (key_type, value_type))
+    else
+      Left ()
+  )" |
+  "either_type_of_expression context (MappingUpdate (mapping_expression, update_expressions)) = (
+    case (either_type_of_expression context mapping_expression) of
+      Right ((TMapping (mapping_key_type, mapping_value_type), mapping_expression_effects), mapping_expression) \<Rightarrow> (
+        let update_types = List.map_filter (\<lambda>x. x) (
+          map (\<lambda>(key_expression, value_expression). case (either_type_of_expression context key_expression, either_type_of_expression context value_expression) of
+            (Right ((key_type, key_effects), key_expression), Right ((value_type, value_effects), value_expression)) \<Rightarrow>
+              if ((key_type = mapping_key_type) \<and> (value_type = mapping_value_type)) then
+                Some (key_effects \<union> value_effects, (key_expression, value_expression))
+              else None |
+          _ \<Rightarrow> None
+        ) update_expressions) in
+        if (is_type_key_mapping mapping_key_type) \<and> (size update_types = size update_expressions) then
+          Right (
+            (
+              TMapping (mapping_key_type, mapping_value_type),
+              mapping_expression_effects \<union> (fold (\<lambda>(effects, _). \<lambda>all_effects. all_effects \<union> effects) update_types {})
+            ),
+            MappingUpdate (mapping_expression, map (\<lambda>(_, update_expressions). update_expressions) update_types)
+          )
+        else Left ()
+      ) |
+      _ \<Rightarrow> Left ()
+    )"         
 
 (* Whether a type can be an input or output *)
 fun is_type_simple :: "astType \<Rightarrow> bool" where
   "is_type_simple TInt = True" |
   "is_type_simple TBool = True" |
+  "is_type_simple TAddress = True" |
   "is_type_simple (TRecord values) = (
-    List.list_all (\<lambda>(_, (_, record_type)). record_type = TInt \<or> record_type = TBool) values)" |
+    List.list_all (\<lambda>(_, (_, record_type)). record_type = TInt \<or> record_type = TBool \<or> record_type = TAddress) values)" |
   "is_type_simple (TEffect (_, type)) = is_type_simple type" |
   "is_type_simple _ = False"
 

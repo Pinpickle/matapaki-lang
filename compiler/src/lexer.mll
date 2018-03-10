@@ -40,6 +40,8 @@ rule read =
   | "export" { EXPORT }
   | "{" { RECORD_OPEN }
   | "}" { RECORD_CLOSE }
+  | "[" { SQUARE_OPEN }
+  | "]" { SQUARE_CLOSE }
   | "(" { LEFT_PAREN }
   | ")" { RIGHT_PAREN }
   | "," { COMMA }

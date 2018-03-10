@@ -1,0 +1,41 @@
+State {
+  one: [Int -> Int],
+  two: [Int -> Int]
+}
+
+fun init: { } -> { one: [Int -> Int], two: [Int -> Int] }
+  arg = {
+    one = [Int -> Int],
+    two = [Int -> Int]
+  }
+
+fun get_value_from_one_in_state: { state: { one: [Int -> Int], two: [Int -> Int] }, arg: Int } -> Int
+  arg = arg.state.one[arg.arg]
+
+fun set_value_in_one_in_state: { state: { one: [Int -> Int], two: [Int -> Int] }, arg: { key: Int, value: Int } } -> { state: { one: [Int -> Int], two: [Int -> Int] }, value: { } }
+  arg = {
+    state = arg.state with {
+      one = arg.state.one with [
+        arg.arg.key -> arg.arg.value
+      ]
+    },
+    value = { }
+  }
+
+fun swap_one_and_two_in_state: { state: { one: [Int -> Int], two: [Int -> Int] }, arg: { } } -> { state: { one: [Int -> Int], two: [Int -> Int] }, value: { } }
+  arg = {
+    state = {
+      one = arg.state.two,
+      two = arg.state.one
+    },
+    value = { }
+  }
+
+export fun get_from_one: Int -> Effect (Read) Int
+  as get_value_from_one_in_state with_state
+
+export fun set_to_one: { key: Int, value: Int } -> Effect (Read, Write) { }
+  as set_value_in_one_in_state updating_state
+
+export fun swap_one_and_two: { } -> Effect (Read, Write) { }
+  as swap_one_and_two_in_state updating_state
