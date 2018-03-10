@@ -13,25 +13,6 @@ let pretty_print_value value =
     | Ast.Bool b -> string_of_bool b
     | Ast.AddressLiteral n -> "@" ^ Big_int.string_of_big_int (Arith.integer_of_int n);;
 
-let rec pretty_print_record_values values =
-  "{" ^ String.concat ",\n" (List.map (fun (_, (name, expression)) -> name ^ " = " ^ pretty_print_ast_expression expression) values) ^ "}"
-and pretty_print_ast_expression expression =
-  match expression with
-    | Ast.BinaryOperator (operator, (e1, e2)) -> "(" ^ pretty_print_ast_expression e1 ^ " " ^ pretty_print_binary_operator operator ^ " " ^ pretty_print_ast_expression e2 ^ ")"
-    | Ast.Value v -> pretty_print_value v
-    | Ast.Variable name -> name
-    | Ast.LetBinding ((name, assignment), inner_expression) ->
-      "let " ^ name ^ " = " ^ pretty_print_ast_expression assignment ^ ";\n" ^ pretty_print_ast_expression inner_expression
-    | Ast.FunctionApplication (name, argument) -> name ^ " (" ^ (pretty_print_ast_expression argument) ^ ")"
-    | Ast.RecordLiteral (values) -> pretty_print_record_values values
-    | Ast.RecordAccess (expression, (name, _)) -> "(" ^ pretty_print_ast_expression expression ^ ")." ^ name
-    | Ast.EffectUnwrap (expression) -> "(" ^ pretty_print_ast_expression expression ^ ")!"
-    | Ast.RecordUpdate (expression, (_, values)) -> "(" ^ pretty_print_ast_expression expression ^ ") with " ^ pretty_print_record_values values
-    | Ast.SendEther (address_expression, value_expression) -> "(send " ^ pretty_print_ast_expression value_expression ^ " to " ^ pretty_print_ast_expression address_expression ^ ")"
-    | Ast.IfExpression (condition_expression, (true_expression, false_expression)) ->
-        "if " ^ pretty_print_ast_expression condition_expression ^ " then \n  " ^ pretty_print_ast_expression true_expression ^ "\nelse\n  " ^ pretty_print_ast_expression false_expression
-    | Ast.SenderExpression -> "sender";;
-
 let pretty_print_ast_effect e =
   match e with
     | Ast.LocalRead -> "Read"
@@ -52,7 +33,31 @@ let rec pretty_print_ast_type ast_type =
     | Ast.TEffect (es, t) ->
       "Effect (" ^ String.concat "," (List.map pretty_print_ast_effect (list_of_set es)) ^ ") " ^ (pretty_print_ast_type t);
     | Ast.Function (input, output) -> pretty_print_ast_type input ^ " -> " ^ pretty_print_ast_type output
-    | Ast.TAddress -> "Address";;
+    | Ast.TAddress -> "Address"
+    | Ast.TMapping (key_type, value_type) -> "[" ^ pretty_print_ast_type key_type ^ " -> " ^ pretty_print_ast_type value_type ^ "]";;
+
+let rec pretty_print_record_values values =
+  "{" ^ String.concat ",\n" (List.map (fun (_, (name, expression)) -> name ^ " = " ^ pretty_print_ast_expression expression) values) ^ "}"
+and pretty_print_ast_expression expression =
+  match expression with
+    | Ast.BinaryOperator (operator, (e1, e2)) -> "(" ^ pretty_print_ast_expression e1 ^ " " ^ pretty_print_binary_operator operator ^ " " ^ pretty_print_ast_expression e2 ^ ")"
+    | Ast.Value v -> pretty_print_value v
+    | Ast.Variable name -> name
+    | Ast.LetBinding ((name, assignment), inner_expression) ->
+      "let " ^ name ^ " = " ^ pretty_print_ast_expression assignment ^ ";\n" ^ pretty_print_ast_expression inner_expression
+    | Ast.FunctionApplication (name, argument) -> name ^ " (" ^ (pretty_print_ast_expression argument) ^ ")"
+    | Ast.RecordLiteral (values) -> pretty_print_record_values values
+    | Ast.RecordAccess (expression, (name, _)) -> "(" ^ pretty_print_ast_expression expression ^ ")." ^ name
+    | Ast.EffectUnwrap (expression) -> "(" ^ pretty_print_ast_expression expression ^ ")!"
+    | Ast.RecordUpdate (expression, (_, values)) -> "(" ^ pretty_print_ast_expression expression ^ ") with " ^ pretty_print_record_values values
+    | Ast.SendEther (address_expression, value_expression) -> "(send " ^ pretty_print_ast_expression value_expression ^ " to " ^ pretty_print_ast_expression address_expression ^ ")"
+    | Ast.IfExpression (condition_expression, (true_expression, false_expression)) ->
+        "if " ^ pretty_print_ast_expression condition_expression ^ " then \n  " ^ pretty_print_ast_expression true_expression ^ "\nelse\n  " ^ pretty_print_ast_expression false_expression
+    | Ast.SenderExpression -> "sender"
+    | Ast.NewMapping (key_type, value_type) -> pretty_print_ast_type (Ast.TMapping (key_type, value_type))
+    | Ast.MappingAccess (mapping_expression, key_expression) -> "(" ^ pretty_print_ast_expression mapping_expression ^ ")[" ^ pretty_print_ast_expression key_expression ^ "]"
+    | Ast.MappingUpdate (mapping_expression, entries_expressions) -> "((" ^ pretty_print_ast_expression mapping_expression ^ ") with [" ^ 
+      (String.concat "\n" (List.map (fun (key_expression, value_expression) -> "(" ^ pretty_print_ast_expression key_expression ^ ") -> (" ^ pretty_print_ast_expression value_expression ^ ")") entries_expressions));;
 
 let pretty_print_ast_modifier modifier =
   match modifier with

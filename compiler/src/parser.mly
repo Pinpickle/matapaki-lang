@@ -49,6 +49,8 @@
 %token ELSE
 %token SENDER
 %token READ_ENVIRONMENT
+%token SQUARE_OPEN
+%token SQUARE_CLOSE
 %token <Compiler_theory.Ast.astBinaryOperator> BINARY_OPERATOR
 
 %start <unit Compiler_theory.Ast.ast_program_ext option> prog
@@ -94,6 +96,7 @@ function_list_rev:
 type_expr:
   | TINT { Compiler_theory.Ast.TInt }
   | TBOOL { Compiler_theory.Ast.TBool }
+  | m = mapping_type { Compiler_theory.Ast.TMapping m }
   | r = record_type { r }
   | e = effect_type { e }
   ;
@@ -119,6 +122,10 @@ record_type_value:
   | iden = IDENTIFIER; COLON; value = type_expr { (iden, value) }
   ;
 
+mapping_type:
+  | SQUARE_OPEN; key_type = type_expr; ARROW; value_type = type_expr; SQUARE_CLOSE
+    { (key_type, value_type) }
+
 record_expression:
   | values = record_literal_list
     { Compiler_theory.Ast.RecordLiteral (add_indices_to_list values) }
@@ -139,12 +146,20 @@ expression_with_operator:
   ;
 
 record_access:
-  | e = expression_with_value; PERIOD; name = IDENTIFIER; { Compiler_theory.Ast.RecordAccess (e, (name, Compiler_theory.Arith.zero_nat)) }
+  | e = expression_with_value; PERIOD; name = IDENTIFIER;
+    { Compiler_theory.Ast.RecordAccess (e, (name, Compiler_theory.Arith.zero_nat)) }
+  ;
 
 expression_record_update:
-  | e = expression_record_update; WITH; values = record_literal_list
+  | e = expression_with_value; WITH; values = record_literal_list
     { Compiler_theory.Ast.RecordUpdate (e, (Compiler_theory.Arith.zero_nat, add_zeroes_to_list values)) }
   | e = expression_with_value { e }
+  ;
+
+mapping_update_value:
+  | key_expr = expression_with_value; ARROW; value_expr = expression
+    { (key_expr, value_expr) }
+  ;
 
 expression_with_value:
   | v = value
@@ -154,6 +169,12 @@ expression_with_value:
   | record = record_expression { record }
   | e = record_access
     { e }
+  | mapping_expr = expression_with_value; SQUARE_OPEN; key_expr = expression; SQUARE_CLOSE
+    { Compiler_theory.Ast.MappingAccess (mapping_expr, key_expr) }
+  | m = mapping_type
+    { Compiler_theory.Ast.NewMapping m }
+  | mapping_expr = expression_with_value; WITH; SQUARE_OPEN; updates = separated_list(COMMA, mapping_update_value); SQUARE_CLOSE
+    { Compiler_theory.Ast.MappingUpdate (mapping_expr, updates) }
   | e = expression_with_value; EXCLAMATION; { Compiler_theory.Ast.EffectUnwrap e }
   | SENDER; { Compiler_theory.Ast.SenderExpression }
   | name = IDENTIFIER; argument = expression;

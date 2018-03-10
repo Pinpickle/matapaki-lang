@@ -105,6 +105,6 @@ async function timeAllContracts(testCases) {
   return results;
 }
 
-timeAllContracts(testCases).then(results => {
+runAllTests(testCases).then(results => {
   console.log(JSON.stringify(results, null, '  '));
 }).catch(console.error);

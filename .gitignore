@@ -5,3 +5,4 @@ _build/
 \#*
 *~
 experiment/
+ocamlprof.dump

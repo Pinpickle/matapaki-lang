@@ -18,6 +18,7 @@ datatype astType
   | TRecord "(nat * (String.literal * astType)) list"
   | TEffect "(ast_effect set) * astType"
   | TAddress
+  | TMapping "astType * astType"
 
 definition "TUnit = TRecord []"
 
@@ -35,6 +36,9 @@ datatype astExpression
   | SendEther "astExpression * astExpression"
   | IfExpression "astExpression * astExpression * astExpression"
   | SenderExpression
+  | NewMapping "astType * astType"
+  | MappingAccess "astExpression * astExpression"
+  | MappingUpdate "astExpression * (astExpression * astExpression) list"
 
 datatype ast_function_modifier = WithState | UpdatingState
 

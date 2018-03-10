@@ -170,7 +170,44 @@ fun either_type_of_expression :: "type_context \<Rightarrow> astExpression => (t
       Right ((TEffect ({ ReadEnvironment }, TAddress), {}), SenderExpression)
     else
       Left ()
-  )"
+  )" |
+  "either_type_of_expression context (MappingAccess (mapping_expression, key_expression)) = (
+    case (either_type_of_expression context mapping_expression, either_type_of_expression context key_expression) of
+      (Right ((TMapping (mapping_expression_key_type, mapping_expression_value_type), mapping_expression_effects), mapping_expression), Right ((key_expression_type, key_expression_effects), key_expression)) \<Rightarrow> (
+        if (mapping_expression_key_type = key_expression_type) then 
+          Right ((mapping_expression_value_type, mapping_expression_effects \<union> key_expression_effects), MappingAccess (mapping_expression, key_expression))
+        else
+          Left ()
+      ) |
+      _ \<Rightarrow> Left ()
+    )" |
+  "either_type_of_expression context (NewMapping (key_type, value_type)) = Right ((TMapping (key_type, value_type), {}), NewMapping (key_type, value_type))" |
+  "either_type_of_expression context (MappingUpdate (mapping_expression, update_expressions)) = (
+    case (either_type_of_expression context mapping_expression) of
+      Right ((TMapping (mapping_key_type, mapping_value_type), mapping_expression_effects), mapping_expression) \<Rightarrow> (
+        let update_types = List.map_filter (\<lambda>x. x) (
+          map (\<lambda>(key_expression, value_expression). case (either_type_of_expression context key_expression, either_type_of_expression context value_expression) of
+            (Right ((key_type, key_effects), key_expression), Right ((value_type, value_effects), value_expression)) \<Rightarrow>
+              if ((key_type = mapping_key_type) \<and> (value_type = mapping_value_type)) then
+                Some (key_effects \<union> value_effects, (key_expression, value_expression))
+              else None |
+          _ \<Rightarrow> None
+        ) update_expressions) in
+        if (size update_types = size update_expressions) then
+          Right (
+            (
+              TMapping (mapping_key_type, mapping_value_type),
+              mapping_expression_effects \<union> (fold (\<lambda>(effects, _). \<lambda>all_effects. all_effects \<union> effects) update_types {})
+            ),
+            MappingUpdate (mapping_expression, map (\<lambda>(_, update_expressions). update_expressions) update_types)
+          )
+        else Left ()
+      ) |
+      _ \<Rightarrow> Left ()
+    )"
+  
+
+                
 
 (* Whether a type can be an input or output *)
 fun is_type_simple :: "astType \<Rightarrow> bool" where
