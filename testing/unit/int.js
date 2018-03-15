@@ -1,8 +1,6 @@
 const { test } = require('ava');
 const { testDiamond } = require('../utils/blockchain');
 
-// Currently broken
-/*
 test('Operator presedence', async t => {
   const { contract, coinbase } = await testDiamond({ pathName: __dirname + '/programs/int.dia' });
 
@@ -11,7 +9,6 @@ test('Operator presedence', async t => {
     '981',
   );
 });
-*/
 
 test('Addition', async t => {
   const { contract, coinbase } = await testDiamond({ pathName: __dirname + '/programs/int.dia' });

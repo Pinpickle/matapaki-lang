@@ -25,10 +25,10 @@ rule read =
   | int { INT (Big_int.big_int_of_string (Lexing.lexeme lexbuf)) }
   | "let" { LET }
   | ";" { SEMICOLON }
-  | "+" { BINARY_OPERATOR Ast.Plus }
-  | "-" { BINARY_OPERATOR Ast.Minus }
-  | "&&" { BINARY_OPERATOR Ast.And }
-  | "||" { BINARY_OPERATOR Ast.Or }
+  | "+" { PLUS }
+  | "-" { MINUS }
+  | "&&" { AND }
+  | "||" { OR }
   | "Write" { WRITE }
   | "Read" { READ }
   | "Paying" { PAYING }

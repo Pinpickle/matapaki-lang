@@ -8,8 +8,6 @@
 
 (executable
  ((name main)
-  (libraries (num core yojson cryptokit))
-  (flags (:standard -P a))
-  (ocamlopt_flags (:standard -p))))
+  (libraries (num core yojson cryptokit))))
 
 

@@ -44,7 +44,7 @@ test('Setting mappings of mappings', async t => {
     '0',
   );
 
-  inspectTransaction(client, await contract.methods.set(1000, 2000, 50).send({ from: coinbase, gas: 400000 }));
+  await contract.methods.set(1000, 2000, 50).send({ from: coinbase, gas: 400000 });
 
   t.deepEqual(
     await contract.methods.get(1000, 2000).call({ from: coinbase, gas: 40000 }),

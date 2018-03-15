@@ -52,7 +52,13 @@
 %token SQUARE_OPEN
 %token SQUARE_CLOSE
 %token REQUIRE
-%token <Compiler_theory.Ast.astBinaryOperator> BINARY_OPERATOR
+%token PLUS
+%token MINUS
+%token OR
+%token AND
+
+%left AND OR
+%left PLUS MINUS
 
 %start <unit Compiler_theory.Ast.ast_program_ext option> prog
 %%
@@ -143,8 +149,14 @@ record_expression_value:
   ;
 
 expression_with_operator:
-  | e1 = expression_with_operator; operator = BINARY_OPERATOR; e2 = expression_with_value
-    { Compiler_theory.Ast.BinaryOperator (operator, (e1, e2)) }
+  | e1 = expression_with_operator; PLUS; e2 = expression_with_operator
+    { Compiler_theory.Ast.BinaryOperator (Compiler_theory.Ast.Plus, (e1, e2)) }
+  | e1 = expression_with_operator; MINUS; e2 = expression_with_operator
+    { Compiler_theory.Ast.BinaryOperator (Compiler_theory.Ast.Minus, (e1, e2)) }
+  | e1 = expression_with_operator; AND; e2 = expression_with_operator
+    { Compiler_theory.Ast.BinaryOperator (Compiler_theory.Ast.And, (e1, e2)) }
+  | e1 = expression_with_operator; OR; e2 = expression_with_operator
+    { Compiler_theory.Ast.BinaryOperator (Compiler_theory.Ast.Or, (e1, e2)) }
   | e = expression_record_update { e }
   ;
 
