@@ -51,6 +51,7 @@
 %token READ_ENVIRONMENT
 %token SQUARE_OPEN
 %token SQUARE_CLOSE
+%token REQUIRE
 %token <Compiler_theory.Ast.astBinaryOperator> BINARY_OPERATOR
 
 %start <unit Compiler_theory.Ast.ast_program_ext option> prog
@@ -65,6 +66,8 @@ expression:
     { Compiler_theory.Ast.SendEther (address_expression, value_expression) }
   | IF; condition_expression = expression; THEN; true_expression = expression; ELSE; false_expression = expression
     { Compiler_theory.Ast.IfExpression (condition_expression, (true_expression, false_expression)) }
+  | REQUIRE; condition_expression = expression; THEN; pass_expression = expression;
+    { Compiler_theory.Ast.RequireExpression (condition_expression, pass_expression) }
   | e = expression_with_operator
     { e }
   ;

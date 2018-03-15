@@ -57,7 +57,8 @@ and pretty_print_ast_expression expression =
     | Ast.NewMapping (key_type, value_type) -> pretty_print_ast_type (Ast.TMapping (key_type, value_type))
     | Ast.MappingAccess (mapping_expression, key_expression) -> "(" ^ pretty_print_ast_expression mapping_expression ^ ")[" ^ pretty_print_ast_expression key_expression ^ "]"
     | Ast.MappingUpdate (mapping_expression, entries_expressions) -> "((" ^ pretty_print_ast_expression mapping_expression ^ ") with [" ^ 
-      (String.concat "\n" (List.map (fun (key_expression, value_expression) -> "(" ^ pretty_print_ast_expression key_expression ^ ") -> (" ^ pretty_print_ast_expression value_expression ^ ")") entries_expressions));;
+      (String.concat "\n" (List.map (fun (key_expression, value_expression) -> "(" ^ pretty_print_ast_expression key_expression ^ ") -> (" ^ pretty_print_ast_expression value_expression ^ ")") entries_expressions))
+    | Ast.RequireExpression (condition_expression, pass_expression) -> "require (" ^ pretty_print_ast_expression condition_expression ^ ") then (" ^ pretty_print_ast_expression pass_expression ^ ")";;
 
 let pretty_print_ast_modifier modifier =
   match modifier with

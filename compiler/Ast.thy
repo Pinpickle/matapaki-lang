@@ -36,6 +36,7 @@ datatype astExpression
   | SendEther "astExpression * astExpression"
   | IfExpression "astExpression * astExpression * astExpression"
   | SenderExpression
+  | RequireExpression "astExpression * astExpression"
   | NewMapping "astType * astType"
   | MappingAccess "astExpression * astExpression"
   | MappingUpdate "astExpression * (astExpression * astExpression) list"

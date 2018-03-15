@@ -215,7 +215,13 @@ fun either_type_of_expression :: "type_context \<Rightarrow> astExpression => (t
         else Left ()
       ) |
       _ \<Rightarrow> Left ()
-    )"         
+    )" | 
+  "either_type_of_expression context (RequireExpression (condition_expression, pass_expression)) = (
+    case (either_type_of_expression context condition_expression, either_type_of_expression context pass_expression) of
+      (Right ((TBool, condition_effects), condition_expression), Right ((pass_type, pass_effects), pass_expression)) \<Rightarrow>
+        Right ((pass_type, pass_effects \<union> condition_effects), RequireExpression (condition_expression, pass_expression)) |
+      _ \<Rightarrow> Left ()
+  )"
 
 (* Whether a type can be an input or output *)
 fun is_type_simple :: "astType \<Rightarrow> bool" where

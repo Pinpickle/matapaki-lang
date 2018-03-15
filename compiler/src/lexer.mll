@@ -59,6 +59,7 @@ rule read =
   | "send" { SEND }
   | "to" { TO }
   | "if" { IF }
+  | "require" { REQUIRE }
   | "then" { THEN }
   | "else" { ELSE }
   | "sender" { SENDER }

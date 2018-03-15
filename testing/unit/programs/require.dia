@@ -1,0 +1,7 @@
+State { }
+
+fun init: { } -> { }
+  arg = { }
+
+export fun require_true: Bool -> Bool
+  arg = require arg then true

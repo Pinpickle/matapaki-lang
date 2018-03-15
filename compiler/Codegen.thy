@@ -90,7 +90,8 @@ fun count_max_let_binding :: "astExpression \<Rightarrow> nat" where
     (fold 
       max 
       (map (\<lambda>(key_expr, value_expr). max (count_max_let_binding key_expr) (count_max_let_binding value_expr)) update_exprs)
-      0)"
+      0)" |
+  "count_max_let_binding (RequireExpression (condition_expression, pass_expression)) = max (count_max_let_binding condition_expression) (count_max_let_binding pass_expression)"
 
 fun place_offset_from_stored_address :: "nat \<Rightarrow> nat \<Rightarrow> inst list" where
   "place_offset_from_stored_address address offset = [
@@ -534,7 +535,13 @@ fun instructions_of_expression :: "codegen_context \<Rightarrow> astExpression =
     instructions_of_expression context key_expression,
     instructions_of_expression context value_expression
   )) entries_expressions)" |
-  "instructions_of_expression context (MappingAccess (mapping_expr, key_expr)) = access_mapping (instructions_of_expression context mapping_expr, instructions_of_expression context key_expr)"
+  "instructions_of_expression context (MappingAccess (mapping_expr, key_expr)) = access_mapping (instructions_of_expression context mapping_expr, instructions_of_expression context key_expr)" |
+  "instructions_of_expression context (RequireExpression (condition_expression, pass_expression)) = 
+    instructions_of_expression context condition_expression @ (
+      branch_if (
+        instructions_of_expression context pass_expression
+      ) REVERT_WITH_NO_DATA
+    )"
 
 definition string_of_words :: "byte list \<Rightarrow> String.literal" where
   "string_of_words ws = String.implode (map (\<lambda>w. char_of_nat (unat w)) ws)"
