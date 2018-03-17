@@ -46,8 +46,16 @@ rule read =
   | ")" { RIGHT_PAREN }
   | "," { COMMA }
   | "." { PERIOD }
+  | "*" { MULTIPLY }
+  | "/" { DIVIDE }
+  | "%" { MOD }
+  | ">" { GREATER }
+  | ">=" { GREATER_EQUAL }
+  | "<" { LESSER }
+  | "<=" { LESSER_EQUAL }
   | "Int" { TINT }
   | "Bool" { TBOOL }
+  | "Address" { TADDRESS }
   | ":" { COLON }
   | "->" { ARROW }
   | "fun" { FUN }

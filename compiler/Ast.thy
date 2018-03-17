@@ -7,7 +7,19 @@ datatype astValue =
   AddressLiteral "int" |
   Bool "bool"
 
-datatype astBinaryOperator = Plus | Minus | Or | And
+datatype astBinaryOperator
+  = Plus
+  | Minus
+  | Or
+  | And 
+  | Greater 
+  | Lesser 
+  | GreaterEqual
+  | LesserEqual
+  | Equal
+  | Multiply
+  | Divide
+  | Mod
 
 datatype ast_effect = LocalRead | LocalWrite | Paying | ReadEnvironment
 

@@ -65,6 +65,14 @@ fun bytes_of_value :: "astValue \<Rightarrow> 8 word list" where
 fun instructions_of_binary_operator :: "astBinaryOperator \<Rightarrow> inst list" where
   "instructions_of_binary_operator Plus = [Arith ADD]" |
   "instructions_of_binary_operator Minus = [Swap 0, Arith SUB]" |
+  "instructions_of_binary_operator Multiply = [Arith MUL]" |
+  "instructions_of_binary_operator Divide = [Swap 0, Sarith SDIV]" |
+  "instructions_of_binary_operator Mod = [Swap 0, Sarith SMOD]" |
+  "instructions_of_binary_operator Greater = [Swap 0, Sarith SGT]" |
+  "instructions_of_binary_operator GreaterEqual = [Swap 0, Sarith SLT] @ BOOLEAN_NOT" |
+  "instructions_of_binary_operator Lesser = [Swap 0, Sarith SLT]" |
+  "instructions_of_binary_operator LesserEqual = [Swap 0, Sarith SGT] @ BOOLEAN_NOT" |
+  "instructions_of_binary_operator Equal = [Arith inst_EQ]" |
   "instructions_of_binary_operator Or = [Bits inst_OR]" |
   "instructions_of_binary_operator And = [Bits inst_AND]"
 

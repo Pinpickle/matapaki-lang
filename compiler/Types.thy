@@ -24,12 +24,24 @@ fun add_type_to_context :: "type_context \<Rightarrow> String.literal \<Rightarr
 fun type_for_name_in_context :: "type_context \<Rightarrow> String.literal \<Rightarrow> astType option" where
   "type_for_name_in_context context name = type_for_name_in_environment (r_variable_environment context) name"
 
-fun either_type_of_binary_operator :: "astBinaryOperator * astType * astType \<Rightarrow> (astType, unit) either" where
-  "either_type_of_binary_operator (Plus, TInt, TInt) = Right TInt" |
-  "either_type_of_binary_operator (Minus, TInt, TInt) = Right TInt" |
-  "either_type_of_binary_operator (Or, TBool, TBool) = Right TBool" |
-  "either_type_of_binary_operator (And, TBool, TBool) = Right TBool" |
-  "either_type_of_binary_operator (_, _, _) = Left ()"
+definition either_type_of_binary_operator :: "astBinaryOperator * astType * astType \<Rightarrow> (astType, unit) either" where
+  "either_type_of_binary_operator operator = (case operator of
+    (Plus, TInt, TInt) \<Rightarrow> Right TInt |
+    (Minus, TInt, TInt) \<Rightarrow> Right TInt |
+    (Multiply, TInt, TInt) \<Rightarrow> Right TInt |
+    (Divide, TInt, TInt) \<Rightarrow> Right TInt |
+    (Mod, TInt, TInt) \<Rightarrow> Right TInt |
+    (Greater, TInt, TInt) \<Rightarrow> Right TBool |
+    (GreaterEqual, TInt, TInt) \<Rightarrow> Right TBool |
+    (Lesser, TInt, TInt) \<Rightarrow> Right TBool |
+    (LesserEqual, TInt, TInt) \<Rightarrow> Right TBool |
+    (Equal, TInt, TInt) \<Rightarrow> Right TBool |
+    (Equal, TBool, TBool) \<Rightarrow> Right TBool |
+    (Equal, TAddress, TAddress) \<Rightarrow> Right TBool |
+    (Or, TBool, TBool) \<Rightarrow> Right TBool |
+    (And, TBool, TBool) \<Rightarrow> Right TBool |
+    (_, _, _) \<Rightarrow> Left ()
+  )"
 
 fun either_type_of_either_binary_operator :: "astBinaryOperator * (typed_ast, unit) either * (typed_ast, unit) either \<Rightarrow> (typed_ast, unit) either" where
   "either_type_of_either_binary_operator (operator, Right ((t1, ef1), ast1), Right ((t2, ef2), ast2)) = (

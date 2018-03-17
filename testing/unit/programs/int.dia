@@ -3,7 +3,11 @@ State { }
 fun init: { } -> { }
   arg = { }
 
-export fun operator_presedence: { } -> Int arg = 10 + 1000 - 20 + 33 - (40 + 2)
 export fun addition: { } -> Int arg = 10 + 5
 export fun subtraction: { } -> Int arg = 10 - 5
-export fun complicated: { } -> Int arg = (10 + 15) + (10 - 13) + 33
+export fun multiplication: { } -> Int arg = 11 * 30
+export fun division: { } -> Int arg = 15 / 5
+export fun division_remainder: { } -> Int arg = 16 / 5
+export fun mod: { } -> Int arg = 15 % 4
+export fun operator_presedence: { } -> Int arg = 10 + 1000 - 20 + 33 - (40 + 2) * 2
+export fun complicated: { } -> Int arg = ((10 + 15) + (10 - 13) + 33 * 3) / 2

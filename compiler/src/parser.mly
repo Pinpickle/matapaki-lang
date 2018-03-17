@@ -56,9 +56,19 @@
 %token MINUS
 %token OR
 %token AND
+%token GREATER
+%token GREATER_EQUAL
+%token LESSER
+%token LESSER_EQUAL
+%token DIVIDE
+%token MULTIPLY
+%token MOD
+%token TADDRESS
 
 %left AND OR
+%left GREATER GREATER_EQUAL LESSER LESSER_EQUAL EQUALS
 %left PLUS MINUS
+%left DIVIDE MULTIPLY MOD
 
 %start <unit Compiler_theory.Ast.ast_program_ext option> prog
 %%
@@ -105,6 +115,7 @@ function_list_rev:
 type_expr:
   | TINT { Compiler_theory.Ast.TInt }
   | TBOOL { Compiler_theory.Ast.TBool }
+  | TADDRESS { Compiler_theory.Ast.TAddress }
   | m = mapping_type { Compiler_theory.Ast.TMapping m }
   | r = record_type { r }
   | e = effect_type { e }
@@ -149,14 +160,33 @@ record_expression_value:
   ;
 
 expression_with_operator:
+  | e1 = expression_with_operator; EQUALS; e2 = expression_with_operator
+    { Compiler_theory.Ast.BinaryOperator (Compiler_theory.Ast.Equal, (e1, e2)) }
   | e1 = expression_with_operator; PLUS; e2 = expression_with_operator
     { Compiler_theory.Ast.BinaryOperator (Compiler_theory.Ast.Plus, (e1, e2)) }
   | e1 = expression_with_operator; MINUS; e2 = expression_with_operator
     { Compiler_theory.Ast.BinaryOperator (Compiler_theory.Ast.Minus, (e1, e2)) }
+  | e1 = expression_with_operator; DIVIDE; e2 = expression_with_operator
+    { Compiler_theory.Ast.BinaryOperator (Compiler_theory.Ast.Divide, (e1, e2)) }
+  | e1 = expression_with_operator; MULTIPLY; e2 = expression_with_operator
+    { Compiler_theory.Ast.BinaryOperator (Compiler_theory.Ast.Multiply, (e1, e2)) }
+  | e1 = expression_with_operator; MOD; e2 = expression_with_operator
+    { Compiler_theory.Ast.BinaryOperator (Compiler_theory.Ast.Mod, (e1, e2)) }
+
   | e1 = expression_with_operator; AND; e2 = expression_with_operator
     { Compiler_theory.Ast.BinaryOperator (Compiler_theory.Ast.And, (e1, e2)) }
   | e1 = expression_with_operator; OR; e2 = expression_with_operator
     { Compiler_theory.Ast.BinaryOperator (Compiler_theory.Ast.Or, (e1, e2)) }
+  
+  | e1 = expression_with_operator; GREATER; e2 = expression_with_operator
+    { Compiler_theory.Ast.BinaryOperator (Compiler_theory.Ast.Greater, (e1, e2)) }
+  | e1 = expression_with_operator; GREATER_EQUAL; e2 = expression_with_operator
+    { Compiler_theory.Ast.BinaryOperator (Compiler_theory.Ast.GreaterEqual, (e1, e2)) }
+  | e1 = expression_with_operator; LESSER; e2 = expression_with_operator
+    { Compiler_theory.Ast.BinaryOperator (Compiler_theory.Ast.Lesser, (e1, e2)) }
+  | e1 = expression_with_operator; LESSER_EQUAL; e2 = expression_with_operator
+    { Compiler_theory.Ast.BinaryOperator (Compiler_theory.Ast.LesserEqual, (e1, e2)) }
+
   | e = expression_record_update { e }
   ;
 

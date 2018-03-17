@@ -5,7 +5,15 @@ let pretty_print_binary_operator operator =
     | Ast.And -> "&&"
     | Ast.Or -> "||"
     | Ast.Plus -> "+"
-    | Ast.Minus -> "-";;
+    | Ast.Minus -> "-"
+    | Ast.Multiply -> "*"
+    | Ast.Divide -> "/"
+    | Ast.Mod -> "%"
+    | Ast.Equal -> "="
+    | Ast.Greater -> ">"
+    | Ast.GreaterEqual -> ">="
+    | Ast.Lesser -> "<"
+    | Ast.LesserEqual -> "<=";;
 
 let pretty_print_value value =
   match value with

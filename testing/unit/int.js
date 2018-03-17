@@ -1,15 +1,6 @@
 const { test } = require('ava');
 const { testDiamond } = require('../utils/blockchain');
 
-test('Operator presedence', async t => {
-  const { contract, coinbase } = await testDiamond({ pathName: __dirname + '/programs/int.dia' });
-
-  t.deepEqual(
-    await contract.methods.operator_presedence().call({ from: coinbase, gas: 40000 }),
-    '981',
-  );
-});
-
 test('Addition', async t => {
   const { contract, coinbase } = await testDiamond({ pathName: __dirname + '/programs/int.dia' });
 
@@ -28,11 +19,56 @@ test('Subtraction', async t => {
   );
 });
 
+test('Multiplication', async t => {
+  const { contract, coinbase } = await testDiamond({ pathName: __dirname + '/programs/int.dia' });
+
+  t.deepEqual(
+    await contract.methods.multiplication().call({ from: coinbase, gas: 40000 }),
+    '330',
+  );
+});
+
+test('Division', async t => {
+  const { contract, coinbase } = await testDiamond({ pathName: __dirname + '/programs/int.dia' });
+
+  t.deepEqual(
+    await contract.methods.division().call({ from: coinbase, gas: 40000 }),
+    '3',
+  );
+});
+
+test('Division with remainder', async t => {
+  const { contract, coinbase } = await testDiamond({ pathName: __dirname + '/programs/int.dia' });
+
+  t.deepEqual(
+    await contract.methods.division_remainder().call({ from: coinbase, gas: 40000 }),
+    '3',
+  );
+});
+
+test('Modulo', async t => {
+  const { contract, coinbase } = await testDiamond({ pathName: __dirname + '/programs/int.dia' });
+
+  t.deepEqual(
+    await contract.methods.mod().call({ from: coinbase, gas: 40000 }),
+    '3',
+  );
+});
+
 test('Complicated', async t => {
   const { contract, coinbase } = await testDiamond({ pathName: __dirname + '/programs/int.dia' });
 
   t.deepEqual(
     await contract.methods.complicated().call({ from: coinbase, gas: 40000 }),
-    '55',
+    '60',
+  );
+});
+
+test('Operator presedence', async t => {
+  const { contract, coinbase } = await testDiamond({ pathName: __dirname + '/programs/int.dia' });
+
+  t.deepEqual(
+    await contract.methods.operator_presedence().call({ from: coinbase, gas: 40000 }),
+    '939',
   );
 });
