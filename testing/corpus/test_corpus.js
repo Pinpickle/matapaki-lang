@@ -4,6 +4,7 @@ const { createBlockchainClient } = require('../utils/blockchain');
 
 const testCases = [
   require('./basic_arith'),
+  require('./simple_token'),
 ];
 
 async function getContractDeploymentMeasures({ interface, bytecode }) {
@@ -49,14 +50,20 @@ async function runTest({ interface, bytecode }, testCase) {
         const contract = new client.eth.Contract(interface);
         const deployedContract = await contract
           .deploy({ data: bytecode, arguments: [] })
-          .send({ from: coinbase, gas: 10000000, value: 0 });
+          .send({ from: coinbase, gas: 10000000, value: 0 })
+          .catch(e => {
+            console.log('Deploying failed');
+            throw e;
+          });
         
         deployedContract.setProvider(client.currentProvider);
 
         const method = await methodTest.create({ contract: deployedContract, coinbase, client });
         
+        const result = await method.call({ from: coinbase, gas: 10000000 }).catch(error => {
+          throw new Error(`Calling method failed! ${methodTest.name} [${error.message}]`);
+        });
         const resultStats = await method.send({ from: coinbase, gas: 10000000 });
-        const result = await method.call({ from: coinbase, gas: 10000000 });
 
         if ((methodTest.test) && (!(await methodTest.test({ result, client, coinbase, contract })))) {
           throw new Error('Method failed!', methodTest.name);
@@ -81,8 +88,14 @@ async function runAllTests(testCases) {
 
     return {
       contract: testCase.contract[0],
-      diamond: await runTest(diamondCompiled, testCase),
-      solidity: await runTest(solidityCompiled, testCase),
+      diamond: await runTest(diamondCompiled, testCase).catch(e => {
+        console.error('Problem with Diamond');
+        throw e;
+      }),
+      solidity: await runTest(solidityCompiled, testCase).catch(e => {
+        console.error('Problem with Solidity');
+        throw e;
+      }),
     };
   }));
 }

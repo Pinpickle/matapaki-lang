@@ -290,11 +290,15 @@ fun either_type_of_function :: "type_context \<Rightarrow> ast_function_definiti
   )
   "
 
+fun init_return_type_matches_state :: "astType \<Rightarrow> astType \<Rightarrow> bool" where
+  "init_return_type_matches_state (TEffect (_, init_type)) state_type = (init_type = state_type)" |
+  "init_return_type_matches_state init_type state_type = (init_type = state_type)"
+
 fun is_init_definition_valid :: "type_context \<Rightarrow> ast_function_definition \<Rightarrow> bool" where
   "is_init_definition_valid context init_definition = (
     \<not>(r_exported init_definition) \<and>
-    (is_type_simple (r_argument_type init_definition)) \<and>
-    (r_state_type context = r_return_type init_definition)
+    ((r_argument_type init_definition) = TRecord []) \<and>
+    (init_return_type_matches_state (r_return_type init_definition) (r_state_type context))
   )"
 
 fun context_of_program :: "ast_program \<Rightarrow> type_context" where
