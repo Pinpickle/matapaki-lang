@@ -22,6 +22,7 @@ definition "TEMP_VARIABLE_ADDRESS = 96"
 definition "INITIAL_INSTRUCTIONS_LENGTH = 34"
 definition "REVERT_INSTRUCTION = Unknown 253"
 definition "REVERT_WITH_NO_DATA = [Stack (PUSH_N [0]), Stack (PUSH_N [0]), REVERT_INSTRUCTION]"
+definition "IS_ADDRESS_STORAGE = [Stack (PUSH_N [0]), Swap 0, Sarith SGT]" 
 
 (* The NOT instruction flips every bit.
    We only want to flip the first bit so 0 becomes 1 and vice versa.  *)
@@ -35,7 +36,10 @@ fun remove_word_padding :: "8 word list \<Rightarrow> 8 word list" where
   "remove_word_padding [] = []"
 
 fun number_to_words :: "int \<Rightarrow> 8 word list" where
-  "number_to_words i = (* remove_word_padding *) (number_to_words_padded i)"
+  "number_to_words i = number_to_words_padded i"
+
+definition number_to_words_minimum :: "int \<Rightarrow> 8 word list" where
+  "number_to_words_minimum i = remove_word_padding (number_to_words_padded i)"
 
 fun offset_for_name_in_context :: "variable_location_list \<Rightarrow> String.literal \<Rightarrow> nat" where
   "offset_for_name_in_context [] _ = 0" |
@@ -58,9 +62,9 @@ fun location_of_function_name_in_context :: "codegen_context \<Rightarrow> Strin
   "location_of_function_name_in_context context name = location_of_function_name_in_functions INITIAL_INSTRUCTIONS_LENGTH (r_program_functions context) name"
 
 fun bytes_of_value :: "astValue \<Rightarrow> 8 word list" where
-  "bytes_of_value (Integer i) = number_to_words i" |
+  "bytes_of_value (Integer i) = number_to_words_minimum i" |
   "bytes_of_value (Bool b) = (if b then [1] else [0])" |
-  "bytes_of_value (AddressLiteral a) = number_to_words a"
+  "bytes_of_value (AddressLiteral a) = number_to_words_minimum a"
 
 fun instructions_of_binary_operator :: "astBinaryOperator \<Rightarrow> inst list" where
   "instructions_of_binary_operator Plus = [Arith ADD]" |
@@ -103,9 +107,9 @@ fun count_max_let_binding :: "astExpression \<Rightarrow> nat" where
 
 fun place_offset_from_stored_address :: "nat \<Rightarrow> nat \<Rightarrow> inst list" where
   "place_offset_from_stored_address address offset = [
-    Stack (PUSH_N (number_to_words address)),
+    Stack (PUSH_N (number_to_words_minimum address)),
     Memory MLOAD,
-    Stack (PUSH_N (number_to_words (offset))),
+    Stack (PUSH_N (number_to_words_minimum (offset))),
     Arith ADD
   ]"
 
@@ -119,12 +123,12 @@ fun instructions_to_call_function_of_name :: "codegen_context \<Rightarrow> Stri
       (* Stack: argument, frame pointer, ... *)
       Swap 0,
       (* Update frame pointer to be next free memory address *)
-      Stack (PUSH_N (number_to_words (NEXT_FREE_MEMORY_ADDRESS))),
+      Stack (PUSH_N (number_to_words_minimum (NEXT_FREE_MEMORY_ADDRESS))),
       Memory MLOAD,
-      Stack (PUSH_N (number_to_words (FRAME_POINTER_ADDRESS))),
+      Stack (PUSH_N (number_to_words_minimum (FRAME_POINTER_ADDRESS))),
       Memory MSTORE,
       (* Stack: function address, argument, frame pointer, ... *)
-      Stack (PUSH_N (number_to_words (location_of_function_name_in_context context name))),
+      Stack (PUSH_N (number_to_words_padded (location_of_function_name_in_context context name))),
       (* Stack: program counter, function address, argument, frame pointer, ... *)
       Pc PC,
       Stack (PUSH_N [7]),
@@ -138,7 +142,7 @@ fun instructions_to_call_function_of_name :: "codegen_context \<Rightarrow> Stri
       (* Stack: return value, frame pointer, *)
       Pc JUMPDEST,
       Swap 0,
-      Stack (PUSH_N (number_to_words FRAME_POINTER_ADDRESS)),
+      Stack (PUSH_N (number_to_words_minimum FRAME_POINTER_ADDRESS)),
       (* Stack: return value *)
       Memory MSTORE
     ]"
@@ -147,17 +151,17 @@ definition create_record :: "(nat * inst list) list \<Rightarrow> bool \<Rightar
   "create_record values partial num_values = [
       (* First reserve the memory we need for this record*)
       (* [Next free address pointer] *)
-      Stack (PUSH_N (number_to_words (NEXT_FREE_MEMORY_ADDRESS))),
+      Stack (PUSH_N (number_to_words_minimum (NEXT_FREE_MEMORY_ADDRESS))),
       (* [free address] *)
       Memory MLOAD,
       (* [free address, free address] *)
       Dup 0,
       (* [record size, free address, free address] *)
-      Stack (PUSH_N (number_to_words (num_values * 40 + 32))),
+      Stack (PUSH_N (number_to_words_minimum (num_values * 40 + 32))),
       (* [new free address, free address] *)
       Arith ADD,
       (* [free address pointer, new free address, free address] *)
-      Stack (PUSH_N (number_to_words (NEXT_FREE_MEMORY_ADDRESS))),
+      Stack (PUSH_N (number_to_words_minimum (NEXT_FREE_MEMORY_ADDRESS))),
       (* [free address] *)
       Memory MSTORE
     ] @ (if partial then ([
@@ -173,7 +177,7 @@ definition create_record :: "(nat * inst list) list \<Rightarrow> bool \<Rightar
       (* [free address, value, free address] *)
       Dup 1,
       (* [record offset, free address, value, free address] *)
-      Stack (PUSH_N (number_to_words (i * 40 + 32))),
+      Stack (PUSH_N (number_to_words_minimum (i * 40 + 32))),
       (* [value address, value, free address] *)
       Arith ADD,
       (* [value address, value address, value, free address] *)
@@ -197,7 +201,7 @@ definition create_full_record :: "(nat * inst list) list \<Rightarrow> inst list
 
 fun fetch_state :: "astType \<Rightarrow> inst list" where
   "fetch_state _ = [
-    Stack (PUSH_N (number_to_words (STORAGE_STATE_ADDRESS))),
+    Stack (PUSH_N (number_to_words_minimum (STORAGE_STATE_ADDRESS))),
     Storage SLOAD
   ]"
 
@@ -205,12 +209,12 @@ definition branch_if :: "inst list \<Rightarrow> inst list \<Rightarrow> inst li
   "branch_if true_instructions false_instructions = ( 
     let jumped_true_instructions = [Pc JUMPDEST] @ true_instructions;
         jumped_false_instructions = false_instructions @ [
-          Stack (PUSH_N (number_to_words (size (bytes_of_instructions jumped_true_instructions) + 3))),
+          Stack (PUSH_N (number_to_words_minimum (size (bytes_of_instructions jumped_true_instructions) + 3))),
           Pc PC,
           Arith ADD,
           Pc JUMP
         ] in [
-      Stack (PUSH_N (number_to_words (size (bytes_of_instructions jumped_false_instructions) + 3))),
+      Stack (PUSH_N (number_to_words_minimum (size (bytes_of_instructions jumped_false_instructions) + 3))),
       Pc PC,
       Arith ADD,
       Pc JUMPI
@@ -218,7 +222,7 @@ definition branch_if :: "inst list \<Rightarrow> inst list \<Rightarrow> inst li
 
 definition check_reentrancy :: "inst list \<Rightarrow> inst list" where
   "check_reentrancy instructions = [
-    Stack (PUSH_N (number_to_words STORAGE_RE_ENTRANCY_FLAG_STATE_ADDRESS)),
+    Stack (PUSH_N (number_to_words_minimum STORAGE_RE_ENTRANCY_FLAG_STATE_ADDRESS)),
     Storage SLOAD,
     Stack (PUSH_N [2]),
     Arith inst_EQ
@@ -233,20 +237,20 @@ definition wrap_reentrancy :: "inst list \<Rightarrow> inst list" where
   "wrap_reentrancy instructions =
     check_reentrancy ([
       Stack (PUSH_N [2]),
-      Stack (PUSH_N (number_to_words STORAGE_RE_ENTRANCY_FLAG_STATE_ADDRESS)),
+      Stack (PUSH_N (number_to_words_minimum STORAGE_RE_ENTRANCY_FLAG_STATE_ADDRESS)),
       Storage SSTORE
     ] @ instructions @ [
       Stack (PUSH_N [1]),
-      Stack (PUSH_N (number_to_words STORAGE_RE_ENTRANCY_FLAG_STATE_ADDRESS)),
+      Stack (PUSH_N (number_to_words_minimum STORAGE_RE_ENTRANCY_FLAG_STATE_ADDRESS)),
       Storage SSTORE
     ])"
 
 definition "keccak_stack_value = [
-  Stack (PUSH_N (number_to_words (NEXT_FREE_MEMORY_ADDRESS))),
+  Stack (PUSH_N (number_to_words_minimum (NEXT_FREE_MEMORY_ADDRESS))),
   Memory MLOAD,
   Memory MSTORE,
   Stack (PUSH_N [32]),
-  Stack (PUSH_N (number_to_words (NEXT_FREE_MEMORY_ADDRESS))),
+  Stack (PUSH_N (number_to_words_minimum (NEXT_FREE_MEMORY_ADDRESS))),
   Memory MLOAD,
   Arith SHA3
 ]"
@@ -258,12 +262,12 @@ definition "create_mapping_storage_address = [
 fun update_mapping :: "((inst list) * (inst list)) list \<Rightarrow> inst list" where
   "update_mapping [] = []" |
   "update_mapping ((key_instructions, value_instructions) # entries) = [
-    Stack (PUSH_N (number_to_words (NEXT_FREE_MEMORY_ADDRESS))),
+    Stack (PUSH_N (number_to_words_minimum (NEXT_FREE_MEMORY_ADDRESS))),
     Memory MLOAD,
     Dup 0,
     Stack (PUSH_N [32 * 3]),
     Arith ADD,
-    Stack (PUSH_N (number_to_words (NEXT_FREE_MEMORY_ADDRESS))),
+    Stack (PUSH_N (number_to_words_minimum (NEXT_FREE_MEMORY_ADDRESS))),
     Memory MSTORE,
     Swap 0,
     Dup 1,
@@ -301,13 +305,9 @@ fun iterate_memory_mapping_entries :: "(inst list * inst list * inst list) \<Rig
       Stack POP
     ] @ default_instructions) (
       [
-        Dup 0,
-        Stack (PUSH_N (word_rsplit STORAGE_ADDRESS_MASK)),
-        Bits inst_AND,
-        Stack (PUSH_N [0]),
+        Dup 0
         (* [is address memory, mapping address, loopback address] *)
-        Arith inst_EQ
-      ] @ branch_if ([
+      ] @ IS_ADDRESS_STORAGE @ branch_if ([
           Dup 0,
           (* [value offset, mapping address, mapping address, loopback] *)
           Stack (PUSH_N [64]),
@@ -354,13 +354,9 @@ fun access_mapping :: "(inst list * inst list) \<Rightarrow> inst list" where
       Stack (PUSH_N [0])
     ] (
       [
-        Dup 0,
-        Stack (PUSH_N (word_rsplit STORAGE_ADDRESS_MASK)),
-        Bits inst_AND,
-        Stack (PUSH_N [0]),
+        Dup 0
         (* [is address memory, mapping address, loopback address, key] *)
-        Arith inst_EQ
-      ] @ (branch_if ([
+      ] @ IS_ADDRESS_STORAGE @ (branch_if ([
           Dup 0,
           (* [key offset, mapping address, mapping address, loopback, key] *)
           Stack (PUSH_N [32]),
@@ -424,7 +420,7 @@ fun access_record_raw :: "inst list \<Rightarrow> nat \<Rightarrow> (inst list *
       [
         Dup 0,
         (* [value offset, record address, record address, loopback] *)
-        Stack (PUSH_N (number_to_words (i * 40 + 32))),
+        Stack (PUSH_N (number_to_words_minimum (i * 40 + 32))),
         (* [value location, record address, loopback] *)
         Arith ADD,
         (* [is_valid, record address, loopback] *)
@@ -456,14 +452,14 @@ definition access_record :: "inst list \<Rightarrow> nat \<Rightarrow> inst list
       (
         [],
         [
-          Stack (PUSH_N (number_to_words (32 + i * 40 + 8))),
+          Stack (PUSH_N (number_to_words_minimum (32 + i * 40 + 8))),
           (* [value location, record address] *)
           Arith ADD,
           (* [value, record address] *)
           Memory MLOAD
         ],
         [
-          Stack (PUSH_N (number_to_words (i))),
+          Stack (PUSH_N (number_to_words_minimum (i))),
           Arith ADD,
           Storage SLOAD
         ]
@@ -574,7 +570,7 @@ fun save_state_at_address :: "astType \<Rightarrow> inst list" where
   "save_state_at_address (TRecord record_values) =
     ([Dup 0] @ contents_address_of_base_address @ [
       Dup 0,
-      Stack (PUSH_N (number_to_words TEMP_VARIABLE_ADDRESS)),
+      Stack (PUSH_N (number_to_words_minimum TEMP_VARIABLE_ADDRESS)),
       Memory MSTORE,
       Swap 0,
       Storage SSTORE
@@ -588,21 +584,21 @@ fun save_state_at_address :: "astType \<Rightarrow> inst list" where
             Stack (PUSH_N [1])
           ],
           [
-            Stack (PUSH_N (number_to_words (32 + index * 40 + 8))),
+            Stack (PUSH_N (number_to_words_minimum (32 + index * 40 + 8))),
             Arith ADD,
             Memory MLOAD,
             Stack (PUSH_N [1])
           ],
           ([
             Dup 0,
-            Stack (PUSH_N (number_to_words TEMP_VARIABLE_ADDRESS)),
+            Stack (PUSH_N (number_to_words_minimum TEMP_VARIABLE_ADDRESS)),
             Memory MLOAD,
             Arith inst_EQ
           ] @ branch_if [
               Stack POP,
               Stack (PUSH_N [0])
             ] [
-              Stack (PUSH_N (number_to_words (index))),
+              Stack (PUSH_N (number_to_words_minimum (index))),
               Arith ADD,
               Storage SLOAD,
               Stack (PUSH_N [1])
@@ -610,14 +606,14 @@ fun save_state_at_address :: "astType \<Rightarrow> inst list" where
         ))) @
       (branch_if
         ([
-          Stack (PUSH_N (number_to_words TEMP_VARIABLE_ADDRESS)),
+          Stack (PUSH_N (number_to_words_minimum TEMP_VARIABLE_ADDRESS)),
           Memory MLOAD,
           Swap 0,
           Dup 1,
-          Stack (PUSH_N (number_to_words index)),
+          Stack (PUSH_N (number_to_words_minimum index)),
           Arith ADD
         ] @ save_state_at_address type @ [
-          Stack (PUSH_N (number_to_words TEMP_VARIABLE_ADDRESS)),
+          Stack (PUSH_N (number_to_words_minimum TEMP_VARIABLE_ADDRESS)),
           Memory MSTORE
         ])
         [])
@@ -628,14 +624,14 @@ fun save_state_at_address :: "astType \<Rightarrow> inst list" where
   "save_state_at_address (TMapping (_, value_type)) =
     [Dup 0] @ contents_address_of_base_address @ [
       Dup 0,
-      Stack (PUSH_N (number_to_words TEMP_VARIABLE_ADDRESS)),
+      Stack (PUSH_N (number_to_words_minimum TEMP_VARIABLE_ADDRESS)),
       Memory MSTORE,
       Swap 0,
       Storage SSTORE
     ] @ iterate_memory_mapping_entries (
       [],
       [
-        Stack (PUSH_N (number_to_words TEMP_VARIABLE_ADDRESS)),
+        Stack (PUSH_N (number_to_words_minimum TEMP_VARIABLE_ADDRESS)),
         (* [mapping address, key, value] *)
         Memory MLOAD,
         (* [value, key, mapping address] *)
@@ -645,11 +641,11 @@ fun save_state_at_address :: "astType \<Rightarrow> inst list" where
         (* [mapping address, key, value, mapping address] *)
         Dup 2
       ] @ create_mapping_storage_address @ save_state_at_address (value_type) @ [
-        Stack (PUSH_N (number_to_words TEMP_VARIABLE_ADDRESS)),
+        Stack (PUSH_N (number_to_words_minimum TEMP_VARIABLE_ADDRESS)),
         Memory MSTORE
       ],
       [
-        Stack (PUSH_N (number_to_words TEMP_VARIABLE_ADDRESS)),
+        Stack (PUSH_N (number_to_words_minimum TEMP_VARIABLE_ADDRESS)),
         Memory MLOAD,
         Arith inst_EQ
       ] @ branch_if
@@ -670,7 +666,7 @@ fun function_body_to_instructions :: "codegen_context \<Rightarrow> ast_function
       (* Make room for all let bindings in this function *)
       place_offset_from_frame_pointer (argument_offset + 32) @ 
     [
-      Stack (PUSH_N (number_to_words (NEXT_FREE_MEMORY_ADDRESS))),
+      Stack (PUSH_N (number_to_words_minimum (NEXT_FREE_MEMORY_ADDRESS))),
       Memory MSTORE
     ] @
       (* Save argument as a variable *)
@@ -693,7 +689,7 @@ fun function_body_to_instructions :: "codegen_context \<Rightarrow> ast_function
   ] @ instructions_to_call_function_of_name context modifiee_name @
       (* The first element of the result record is the new state *)
       access_record [Dup 0] 0 @
-      [Stack (PUSH_N (number_to_words STORAGE_STATE_ADDRESS))] @
+      [Stack (PUSH_N (number_to_words_minimum STORAGE_STATE_ADDRESS))] @
       save_state_at_address (r_codegen_state_type context) @
       (* The second element is the data to return *)
       access_record [] 1)" 
@@ -774,7 +770,7 @@ fun return_instructions_for_type :: "astType \<Rightarrow> inst list" where
   "return_instructions_for_type TAddress = return_32_byte_value_on_stack ()" |
   "return_instructions_for_type (TRecord values) = [
     (* [free address pointer, return record] *)
-    Stack (PUSH_N (number_to_words NEXT_FREE_MEMORY_ADDRESS)),
+    Stack (PUSH_N (number_to_words_minimum NEXT_FREE_MEMORY_ADDRESS)),
     (* [free address, record] *)
     Memory MLOAD
   ] @ List.concat (map (\<lambda>(i, _).
@@ -783,14 +779,14 @@ fun return_instructions_for_type :: "astType \<Rightarrow> inst list" where
       (* [free address, value, free address, record] *)
       Dup 1,
       (* [return offset, free address, value, free address, record] *)
-      Stack (PUSH_N (number_to_words (i * 32))),
+      Stack (PUSH_N (number_to_words_minimum (i * 32))),
       (* [return address, value, free address, record] *)
       Arith ADD,
       (* [free address, record] *)
       Memory MSTORE
     ]
   ) values) @ [
-    Stack (PUSH_N (number_to_words ((length values) * 32))),
+    Stack (PUSH_N (number_to_words_minimum ((length values) * 32))),
     Swap 0,
     Misc RETURN
   ]" |
@@ -813,7 +809,7 @@ fun extract_type_from_call_data :: "astType \<Rightarrow> inst list" where
   "extract_type_from_call_data (TRecord values) =
     create_full_record (
       map
-        (\<lambda>(i, (_, expression)). (i, [Stack (PUSH_N (number_to_words (i * 32 + 4))), Stack CALLDATALOAD])) 
+        (\<lambda>(i, (_, expression)). (i, [Stack (PUSH_N (number_to_words_minimum (i * 32 + 4))), Stack CALLDATALOAD])) 
         values
     )" |
   "extract_type_from_call_data _ = REVERT_WITH_NO_DATA"
@@ -846,7 +842,7 @@ fun check_and_execute_function :: "codegen_context \<Rightarrow> program_functio
     instructions_to_call_function_of_name context (r_function_name function) @
     return_instructions_for_type (r_return_type function) in (
       init_instructions @ [
-      Stack (PUSH_N (number_to_words (size (bytes_of_instructions call_instructions))))
+      Stack (PUSH_N (number_to_words_minimum (size (bytes_of_instructions call_instructions))))
       ] @ call_instructions @ [
         Pc JUMPDEST
       ])
@@ -873,7 +869,7 @@ fun program_defined_init :: "codegen_context \<Rightarrow> inst list" where
   "program_defined_init context =  [
     Stack (PUSH_N [0]) (* Push unit as input to the function no arg *)
   ] @ instructions_to_call_function_of_name context AST_INIT_NAME @ [
-    Stack (PUSH_N (number_to_words STORAGE_STATE_ADDRESS))
+    Stack (PUSH_N (number_to_words_minimum STORAGE_STATE_ADDRESS))
   ] @ save_state_at_address  (r_codegen_state_type context)"
 
 fun init_instructions_naive :: "codegen_context \<Rightarrow> nat \<Rightarrow> inst list" where
@@ -882,18 +878,18 @@ fun init_instructions_naive :: "codegen_context \<Rightarrow> nat \<Rightarrow> 
     Pc PC,
     (* Push a marker to the stack, this will be overwritten in memory
        [marker, pre-marker pc]*)
-    Stack (PUSH_N (number_to_words 0)),
+    Stack (PUSH_N (number_to_words_padded 0)),
     (* [post-marker pc, marker, pre-marker pc] *)
     Pc PC,
     (* [destination - (post-marker pc), (post-marker pc), marker, pre-marker pc] *)
-    Stack (PUSH_N (number_to_words (offset - 36))),
+    Stack (PUSH_N (number_to_words_padded (offset - 36))),
     (* [destination, marker, pre-marker pc] *)
     Arith ADD,
     (* Jump to JUMPDEST at the bottom of this section if marker is 1
        [pre-marker pc] *)
     Pc JUMPI,
     Stack (PUSH_N [1]),
-    Stack (PUSH_N (number_to_words STORAGE_RE_ENTRANCY_FLAG_STATE_ADDRESS)),
+    Stack (PUSH_N (number_to_words_padded STORAGE_RE_ENTRANCY_FLAG_STATE_ADDRESS)),
     Storage SSTORE] @
     (* Run user-defined init *)
     program_defined_init context @
@@ -926,9 +922,9 @@ fun instructions_of_program :: "typed_program \<Rightarrow> inst list" where
       instructions @ [
         Stack (PUSH_N [128]),
         Stack (PUSH_N [128]),
-        Stack (PUSH_N (number_to_words (NEXT_FREE_MEMORY_ADDRESS))),
+        Stack (PUSH_N (number_to_words_minimum (NEXT_FREE_MEMORY_ADDRESS))),
         Memory MSTORE,
-        Stack (PUSH_N (number_to_words (FRAME_POINTER_ADDRESS))),
+        Stack (PUSH_N (number_to_words_minimum (FRAME_POINTER_ADDRESS))),
         Memory MSTORE
       ] @ init_instructions context @ (
       functions_to_selection_instruction 
