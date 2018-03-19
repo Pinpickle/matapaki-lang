@@ -1,0 +1,12 @@
+State { }
+
+fun init: { } -> { }
+  arg = { }
+
+export fun factorial: Int -> Int
+  n =
+    require n >= 0 then
+    if (n = 0) then
+      1
+    else
+      (factorial (n - 1)) * n

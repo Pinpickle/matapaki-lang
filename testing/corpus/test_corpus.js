@@ -5,6 +5,7 @@ const { createBlockchainClient } = require('../utils/blockchain');
 const testCases = [
   require('./basic_arith'),
   require('./simple_token'),
+  require('./factorial'),
 ];
 
 async function getContractDeploymentMeasures({ interface, bytecode }) {
