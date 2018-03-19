@@ -1,7 +1,7 @@
 State { }
 
 fun init: { } -> { }
-  arg = { }
+  arg -> { }
 
 export fun send_ether_to_address: { } -> Effect (Paying) { }
-  arg = (send 2 to (@251381351299332434829301199954041344593207789838))!
+  arg -> (send 2 to (@251381351299332434829301199954041344593207789838))!

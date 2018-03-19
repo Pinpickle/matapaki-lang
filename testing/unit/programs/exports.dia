@@ -1,9 +1,9 @@
 State { }
 
 fun init: { } -> { }
-  arg = { }
+  arg -> { }
 
-export fun fun_1: { } -> Int arg = 1
-export fun fun_2: { } -> Int arg = 1
-export fun fun_3: { } -> Int arg = 1
-fun not_exported: { } -> Int arg = 1
+export fun fun_1: { } -> Int arg -> 1
+export fun fun_2: { } -> Int arg -> 1
+export fun fun_3: { } -> Int arg -> 1
+fun not_exported: { } -> Int arg -> 1

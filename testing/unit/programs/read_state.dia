@@ -1,16 +1,16 @@
 State { x: Int, y: Int }
 
 fun init: { } -> { x: Int, y: Int }
-  arg = { x = 5, y = 10 }
+  arg -> { x = 5, y = 10 }
 
 fun get_x_from_state: { state: { x: Int, y: Int }, arg: { } } -> Int
-  arg = arg.state.x
+  arg -> arg.state.x
 
 fun get_y_plus_arg_from_state: { state: { x: Int, y: Int }, arg: Int } -> Int
-  arg = (arg.state.y) + arg.arg
+  arg -> (arg.state.y) + arg.arg
 
 fun subtract_from_state: { state: { x: Int, y: Int }, arg: { xmul: Int, ymul: Int } } -> Int
-  arg = (arg.state.x - arg.arg.xmul) + (arg.state.y - arg.arg.ymul)
+  arg -> (arg.state.x - arg.arg.xmul) + (arg.state.y - arg.arg.ymul)
 
 export fun get_x: { } -> Effect (Read) Int
   as get_x_from_state with_state

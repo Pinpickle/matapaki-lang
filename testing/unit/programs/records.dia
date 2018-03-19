@@ -1,27 +1,27 @@
 State { }
 
 fun init: { } -> { }
-  arg = { }
+  arg -> { }
 
 export fun add_two_numbers: { x: Int, y: Int } -> Int
-  args =
+  args ->
     args.x + args.y
 
 export fun output_twice: Int -> { x: Int, y: Int }
-  x = { x = x, y = x + 1 }
+  x -> { x = x, y = x + 1 }
 
 fun add_all_innards: { one: { x: Int, y: Int }, two: { x: Int, y: Int } } -> { xs: Int, ys: Int }
-  args = { xs = args.one.x + args.two.x, ys = args.one.y + args.two.y }
+  args -> { xs = args.one.x + args.two.x, ys = args.one.y + args.two.y }
 
 export fun return_four_numbers: { x: Int, y: Int, z: Int, w: Int } -> { x: Int, y: Int, z: Int, w: Int }
-  args = args
+  args -> args
 
 export fun add_four_numbers_with_inner_records: { } -> Int
-  args =
+  args ->
     let input = { x = { x = 1, y = 1 }, y = 2, z = 3 };
     (input.x).x + (input.x).y + input.y + input.z
 
 export fun add_four_numbers_complex: { x: Int, y: Int, z: Int, w: Int } -> Int
-  args =
+  args ->
     let sums = add_all_innards { one = { x = args.x, y = args.y }, two = { x = args.z, y = args.w } };
     sums.xs + sums.ys

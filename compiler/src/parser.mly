@@ -95,7 +95,7 @@ function_block:
   ;
 
 function_body:
-  | argument_name = IDENTIFIER; EQUALS; body = expression; { (argument_name, Compiler_theory.Ast.FunctionExpression body) }
+  | argument_name = IDENTIFIER; ARROW; body = expression; { (argument_name, Compiler_theory.Ast.FunctionExpression body) }
   | AS; modifiee_name = IDENTIFIER; modifier = function_modifier { ("arg", Compiler_theory.Ast.FunctionModifier(modifiee_name, modifier)) }
   ;
 

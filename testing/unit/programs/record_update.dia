@@ -1,8 +1,8 @@
 State { }
 
 fun init: { } -> { }
-  arg = { }
+  arg -> { }
 
 export fun update_record: { } -> { x: Int, y: Int }
-  arg = 
+  arg -> 
     { x = 5, y = 5 } with { y = 10 }

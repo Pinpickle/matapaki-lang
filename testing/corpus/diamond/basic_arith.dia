@@ -1,10 +1,10 @@
 State { }
 
 fun init: { } -> { }
-  arg = { }
+  arg -> { }
 
 export fun add: { x: Int, y: Int } -> Int
-  arg = arg.x + arg.y
+  arg -> arg.x + arg.y
 
 export fun subtract: { x: Int, y: Int } -> Int
-  arg = arg.x - arg.y
+  arg -> arg.x - arg.y

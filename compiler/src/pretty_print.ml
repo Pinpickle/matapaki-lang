@@ -77,7 +77,7 @@ let pretty_print_ast_function function_block =
   (if Ast.r_exported function_block then "export " else "") ^ "fun " ^ Ast.r_function_name function_block ^ ": " ^
   pretty_print_ast_type (Ast.r_argument_type function_block) ^ " -> " ^
   pretty_print_ast_type (Ast.r_return_type function_block) ^ " \n  " ^ (match Ast.r_body function_block with
-    | Ast.FunctionExpression expression -> Ast.r_argument_name function_block ^ " = " ^ pretty_print_ast_expression expression
+    | Ast.FunctionExpression expression -> Ast.r_argument_name function_block ^ " -> " ^ pretty_print_ast_expression expression
     | Ast.FunctionModifier (modifiee, modifier) -> "as " ^ modifiee ^ " " ^ pretty_print_ast_modifier modifier)
   ;;
 

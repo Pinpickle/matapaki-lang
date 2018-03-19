@@ -4,16 +4,16 @@ State {
 }
 
 fun init: { } -> { one: [Int -> Int], two: [Int -> Int] }
-  arg = {
+  arg -> {
     one = [Int -> Int],
     two = [Int -> Int]
   }
 
 fun get_value_from_one_in_state: { state: { one: [Int -> Int], two: [Int -> Int] }, arg: Int } -> Int
-  arg = arg.state.one[arg.arg]
+  arg -> arg.state.one[arg.arg]
 
 fun set_value_in_one_in_state: { state: { one: [Int -> Int], two: [Int -> Int] }, arg: { key: Int, value: Int } } -> { state: { one: [Int -> Int], two: [Int -> Int] }, value: { } }
-  arg = {
+  arg -> {
     state = arg.state with {
       one = arg.state.one with [
         arg.arg.key -> arg.arg.value
@@ -23,7 +23,7 @@ fun set_value_in_one_in_state: { state: { one: [Int -> Int], two: [Int -> Int] }
   }
 
 fun swap_one_and_two_in_state: { state: { one: [Int -> Int], two: [Int -> Int] }, arg: { } } -> { state: { one: [Int -> Int], two: [Int -> Int] }, value: { } }
-  arg = {
+  arg -> {
     state = {
       one = arg.state.two,
       two = arg.state.one

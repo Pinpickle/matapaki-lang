@@ -1,15 +1,15 @@
 State { }
 
 fun init: { } -> { }
-  arg = { }
+  arg -> { }
 
 export fun single_let_binding: { } -> Int
-  arg =
+  arg ->
     let x = 5;
     x + 1
 
 export fun multiple_let_bindings: { } -> Int
-  arg =
+  arg ->
     let x = 5;
     let y = 6;
     let z = x + y;

@@ -1,28 +1,28 @@
 State { }
 
 fun init: { } -> { }
-  arg = { }
+  arg -> { }
 
 export fun bools_equal: { x: Bool, y: Bool } -> Bool
-  arg = arg.x = arg.y
+  arg -> arg.x = arg.y
 
 export fun ints_equal: { x: Int, y: Int } -> Bool
-  arg = arg.x = arg.y
+  arg -> arg.x = arg.y
 
 export fun addresses_equal: { x: Address, y: Address } -> Bool
-  arg = arg.x = arg.y
+  arg -> arg.x = arg.y
 
 export fun greater: { x: Int, y: Int } -> Bool
-  arg = arg.x > arg.y
+  arg -> arg.x > arg.y
 
 export fun greater_equal: { x: Int, y: Int } -> Bool
-  arg = arg.x >= arg.y
+  arg -> arg.x >= arg.y
 
 export fun lesser: { x: Int, y: Int } -> Bool
-  arg = arg.x < arg.y
+  arg -> arg.x < arg.y
 
 export fun lesser_equal: { x: Int, y: Int } -> Bool
-  arg = arg.x <= arg.y
+  arg -> arg.x <= arg.y
 
 export fun operator_precedence: { } -> Bool
-  arg = 10 + 15 < 13 || 20 - 5 <= 100
+  arg -> 10 + 15 < 13 || 20 - 5 <= 100

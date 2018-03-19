@@ -1,19 +1,19 @@
 State { }
 
 fun init: { } -> { }
-  arg = { }
+  arg -> { }
 
 fun return_five: { } -> Int
-  arg = 5
+  arg -> 5
 
 fun add_seven: Int -> Int
-  x = x + 7
+  x -> x + 7
 
 export fun single_call: { } -> Int
-  arg = return_five { }
+  arg -> return_five { }
 
 export fun wide_call: Int -> Int
-  x = ((return_five { }) + (add_seven x))
+  x -> ((return_five { }) + (add_seven x))
 
 export fun deep_call: { } -> Int
-  x = add_seven (return_five { })
+  x -> add_seven (return_five { })

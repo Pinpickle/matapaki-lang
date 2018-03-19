@@ -1,13 +1,13 @@
 State [Int -> [Int -> Int]]
 
 fun init: { } -> [Int -> [Int -> Int]]
-  arg = [Int -> [Int -> Int]]
+  arg -> [Int -> [Int -> Int]]
 
 fun get_from_state: { state: [Int -> [Int -> Int]], arg: { key1: Int, key2: Int } } -> Int
-  arg = arg.state[arg.arg.key1][arg.arg.key2]
+  arg -> arg.state[arg.arg.key1][arg.arg.key2]
 
 fun set_in_state: { state: [Int -> [Int -> Int]], arg: { key1: Int, key2: Int, value: Int } } -> { state: [Int -> [Int -> Int]], value: { } }
-  arg = {
+  arg -> {
     state = arg.state with [
       arg.arg.key1 -> arg.state[arg.arg.key1] with [
         arg.arg.key2 -> arg.arg.value

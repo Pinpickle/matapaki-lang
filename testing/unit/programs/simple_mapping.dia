@@ -1,16 +1,16 @@
 State { }
 
 fun init: { } -> { }
-  arg = { }
+  arg -> { }
 
 fun create_mapping: { } -> [Int -> Int]
-  arg = [Int -> Int] with [0 -> 1, 1 -> 2]
+  arg -> [Int -> Int] with [0 -> 1, 1 -> 2]
 
 export fun value_of: Int -> Int
-  index = (create_mapping { })[index]
+  index -> (create_mapping { })[index]
 
 export fun default_record: { } -> Int
-  arg = ([Int -> { x: Int }])[0].x
+  arg -> ([Int -> { x: Int }])[0].x
 
 export fun value_of_mapping_of_mapping: { key1: Int, key2: Int } -> Int
-  keys = ([Int -> [Int -> Int]] with [10 -> ([Int -> Int] with [20 -> 30])])[keys.key1][keys.key2]
+  keys -> ([Int -> [Int -> Int]] with [10 -> ([Int -> Int] with [20 -> 30])])[keys.key1][keys.key2]

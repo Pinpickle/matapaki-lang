@@ -3,12 +3,12 @@ State {
 }
 
 fun init: { } -> { money_claimed: Bool }
-  arg = {
+  arg -> {
     money_claimed = false
   }
 
 fun claim_money_from_state: { state: { money_claimed: Bool }, arg: { } } -> Effect (ReadEnv, Paying) { state: { money_claimed: Bool }, value: Bool }
-  arg =
+  arg ->
     if arg.state.money_claimed then
       ({
         state = arg.state,
