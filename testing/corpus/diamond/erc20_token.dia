@@ -1,0 +1,156 @@
+State {
+  allowances: [Address -> [Address -> Int]],
+  balances: [Address -> Int]
+}
+
+fun init:
+  { } -> Effect (ReadEnv) {
+    allowances: [Address -> [Address -> Int]],
+    balances: [Address -> Int]
+  }
+  arg -> {
+    allowances = [Address -> [Address -> Int]],
+    balances = [Address -> Int] with [
+      sender! -> totalSupply { }
+    ]
+  }
+
+export fun totalSupply: { } -> Int arg -> 100000
+
+fun balanceOf_from_state:
+  {
+    state: {
+      allowances: [Address -> [Address -> Int]],
+      balances: [Address -> Int]
+    },
+    arg: Address
+  } -> Int
+  arg -> arg.state.balances[arg.arg]
+
+export fun balanceOf: Address -> Effect (Read) Int
+  as balanceOf_from_state with_state
+
+fun allowance_from_state:
+  {
+    state: {
+      allowances: [Address -> [Address -> Int]],
+      balances: [Address -> Int]
+    },
+    arg: {
+      tokenOwner: Address,
+      spender: Address
+    }
+  } -> Int
+  arg -> arg.state.allowances[arg.arg.tokenOwner][arg.arg.spender]
+
+export fun allowance: { tokenOwner: Address, spender: Address } -> Effect (Read) Int
+  as allowance_from_state with_state
+
+fun transfer_in_state:
+  {
+    state: {
+      allowances: [Address -> [Address -> Int]],
+      balances: [Address -> Int]
+    },
+    arg: {
+      recipient: Address,
+      tokens: Int
+    }
+  } -> Effect (ReadEnv) {
+    state: {
+      allowances: [Address -> [Address -> Int]],
+      balances: [Address -> Int]
+    },
+    value: Bool
+  }
+  arg ->
+    let from = sender!;
+    require arg.state.balances[sender!] >= arg.arg.tokens && arg.arg.tokens > 0 then
+    {
+      state = arg.state with {
+        balances = arg.state.balances with [
+          from -> arg.state.balances[from] - arg.arg.tokens,
+          arg.arg.recipient -> arg.state.balances[arg.arg.recipient] + arg.arg.tokens
+        ]
+      },
+      value = true
+    }
+
+export fun transfer: { recipient: Address, tokens: Int } -> Effect (Read, Write, ReadEnv) Bool
+  as transfer_in_state updating_state
+
+fun transferFrom_in_state:
+  {
+    state: {
+      allowances: [Address -> [Address -> Int]],
+      balances: [Address -> Int]
+    },
+    arg: {
+      from: Address,
+      recipient: Address,
+      tokens: Int
+    }
+  } -> Effect (ReadEnv) {
+    state: {
+      allowances: [Address -> [Address -> Int]],
+      balances: [Address -> Int]
+    },
+    value: Bool
+  }
+  arg ->
+    let facilitator = sender!;
+    let allowed_tokens = arg.state.allowances[arg.arg.from][facilitator];
+    require 
+      arg.state.balances[arg.arg.from] >= arg.arg.tokens && 
+      allowed_tokens >= arg.arg.tokens then
+    {
+      state = arg.state with {
+        balances = arg.state.balances with [
+          arg.arg.from -> arg.state.balances[arg.arg.from] - arg.arg.tokens,
+          arg.arg.recipient -> arg.state.balances[arg.arg.recipient] + arg.arg.tokens
+        ],
+        allowances = arg.state.allowances with [
+          arg.arg.from -> arg.state.allowances[arg.arg.from] with [
+            facilitator -> allowed_tokens - arg.arg.tokens
+          ]
+        ]
+      },
+      value = true
+    }
+
+export fun transferFrom: { from: Address, recipient: Address, tokens: Int } -> Effect (Read, Write, ReadEnv) Bool
+  as transferFrom_in_state updating_state
+
+fun approve_in_state:
+  {
+    state: {
+      allowances: [Address -> [Address -> Int]],
+      balances: [Address -> Int]
+    },
+    arg: {
+      facilitator: Address,
+      tokens: Int
+    }
+  } -> Effect (ReadEnv) {
+    state: {
+      allowances: [Address -> [Address -> Int]],
+      balances: [Address -> Int]
+    },
+    value: Bool
+  }
+  arg ->
+    let owner = sender!;
+    require arg.arg.tokens >= 0 then
+    {
+      state = arg.state with {
+        allowances = arg.state.allowances with [
+          owner -> arg.state.allowances[owner] with [
+            arg.arg.facilitator -> arg.arg.tokens
+          ]
+        ]
+      },
+      value = true
+    }
+
+export fun approve: { facilitator: Address, tokens: Int } -> Effect (Read, Write, ReadEnv) Bool
+  as approve_in_state updating_state

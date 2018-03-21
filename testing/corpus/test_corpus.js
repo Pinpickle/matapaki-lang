@@ -3,9 +3,10 @@ const { compile: compileSolidity } = require('../utils/compile-solidity.js');
 const { createBlockchainClient } = require('../utils/blockchain');
 
 const testCases = [
-  require('./basic_arith'),
-  require('./simple_token'),
-  require('./factorial'),
+  // require('./basic_arith'),
+  // require('./simple_token'),
+  // require('./factorial'),
+  require('./erc20_token'),
 ];
 
 async function getContractDeploymentMeasures({ interface, bytecode }) {
@@ -62,12 +63,12 @@ async function runTest({ interface, bytecode }, testCase) {
         const method = await methodTest.create({ contract: deployedContract, coinbase, client });
         
         const result = await method.call({ from: coinbase, gas: 10000000 }).catch(error => {
-          throw new Error(`Calling method failed! ${methodTest.name} [${error.message}]`);
+          throw new Error(`Calling ${methodTest.name} failed! [${error.message}]`);
         });
         const resultStats = await method.send({ from: coinbase, gas: 10000000 });
 
-        if ((methodTest.test) && (!(await methodTest.test({ result, client, coinbase, contract })))) {
-          throw new Error('Method failed!', methodTest.name);
+        if ((methodTest.test) && (!(await methodTest.test({ result, client, coinbase, contract: deployedContract })))) {
+          throw new Error(`Testing ${methodTest.name} failed!`, methodTest.name);
         };
 
         return {

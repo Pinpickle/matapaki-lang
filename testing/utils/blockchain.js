@@ -1,9 +1,14 @@
+const Accounts = require('web3-eth-accounts');
 const Web3 = require('web3');
 const ganache = require('ganache-cli');
 const fs = require('fs');
 const util = require('util');
 const compileSolidity = require('./compile-solidity');
 const compileDiamond = require('./compile-diamond');
+
+const accounts = new Accounts();
+
+const { address: extraAccountAddress, privateKey: extraAccountPrivateKey} = accounts.create();
 
 function createBlockchainClient() {
   return new Web3(ganache.provider({
@@ -14,7 +19,12 @@ function createBlockchainClient() {
       {
         balance: 1000000000000000000000000,
       },
+      {
+        balance: 1000000000000000000000000,
+        secretKey: extraAccountPrivateKey,
+      }
     ],
+    locked: false,
   }));
 }
 
@@ -67,5 +77,6 @@ module.exports = {
   testSolidity,
   testDiamond,
   inspectTransaction,
+  extraAccountAddress,
 };
 
