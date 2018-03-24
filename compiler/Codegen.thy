@@ -409,13 +409,9 @@ fun access_record_raw :: "inst list \<Rightarrow> nat \<Rightarrow> (inst list *
     Stack (PUSH_N [0])
   ] @ default_instructions) ([
     (* [record address, record address, loopback address] *)
-    Dup 0,
-    Stack (PUSH_N (word_rsplit STORAGE_ADDRESS_MASK)),
-    Bits inst_AND,
-    Stack (PUSH_N [0]),
+    Dup 0
     (* [is address memory, record address, loopback address] *)
-    Arith inst_EQ
-  ] @ (
+  ] @ IS_ADDRESS_STORAGE @ (
     branch_if (
       [
         Dup 0,
@@ -562,6 +558,18 @@ definition "contents_address_of_base_address = keccak_stack_value @ [
     Bits inst_OR
   ]"
 
+definition "store_if_changed = [
+    Dup 0,
+    Storage SLOAD,
+    Dup 2,
+    Arith inst_EQ
+  ] @ (
+    branch_if [
+      Stack POP,
+      Stack POP
+    ] [Storage SSTORE]
+  )"
+
 (* This function expects the top two values on the stack to be [address, value to save] *)
 fun save_state_at_address :: "astType \<Rightarrow> inst list" where
   "save_state_at_address TInt = [Storage SSTORE]" |
@@ -572,9 +580,8 @@ fun save_state_at_address :: "astType \<Rightarrow> inst list" where
       Dup 0,
       Stack (PUSH_N (number_to_words_minimum TEMP_VARIABLE_ADDRESS)),
       Memory MSTORE,
-      Swap 0,
-      Storage SSTORE
-    ] @ List.concat (List.map 
+      Swap 0
+    ] @ store_if_changed @ List.concat (List.map 
     (\<lambda>(index, (_, type)). (
       (access_record_raw
         [Dup 0]
@@ -626,9 +633,8 @@ fun save_state_at_address :: "astType \<Rightarrow> inst list" where
       Dup 0,
       Stack (PUSH_N (number_to_words_minimum TEMP_VARIABLE_ADDRESS)),
       Memory MSTORE,
-      Swap 0,
-      Storage SSTORE
-    ] @ iterate_memory_mapping_entries (
+      Swap 0
+    ] @ store_if_changed @ iterate_memory_mapping_entries (
       [],
       [
         Stack (PUSH_N (number_to_words_minimum TEMP_VARIABLE_ADDRESS)),

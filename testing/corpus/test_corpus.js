@@ -3,10 +3,10 @@ const { compile: compileSolidity } = require('../utils/compile-solidity.js');
 const { createBlockchainClient } = require('../utils/blockchain');
 
 const testCases = [
-  // require('./basic_arith'),
-  // require('./simple_token'),
-  // require('./factorial'),
-  require('./erc20_token'),
+  require('./tests/basic_arith'),
+  require('./tests/simple_token'),
+  require('./tests/factorial'),
+  require('./tests/erc20_token'),
 ];
 
 async function getContractDeploymentMeasures({ interface, bytecode }) {
@@ -29,11 +29,16 @@ async function getContractDeploymentMeasures({ interface, bytecode }) {
 async function timeFunction(toTime) {
   const start = process.hrtime();
   await toTime();
-  return process.hrtime(start);
+  const [seconds, nanoseconds] = process.hrtime(start);
+
+  return seconds * 1000 + nanoseconds / 1000000
 }
 
-async function timeFunctionRepeats(toTime, repeats = 5) {
+async function timeFunctionRepeats(toTime, repeats = 6) {
   const results = [];
+
+  // Discard a cold result
+  await timeFunction(toTime);
 
   for (let attempt = 0; attempt < repeats; attempt += 1) {
     results.push(await timeFunction(toTime));
@@ -120,6 +125,8 @@ async function timeAllContracts(testCases) {
   return results;
 }
 
-runAllTests(testCases).then(results => {
-  console.log(JSON.stringify(results, null, '  '));
-}).catch(console.error);
+module.exports = {
+  runAllTests,
+  timeAllContracts,
+  testCases,
+};

@@ -1,4 +1,4 @@
-const { extraAccountAddress } = require('../utils/blockchain');
+const { extraAccountAddress } = require('../../utils/blockchain');
 
 module.exports = {
   contract: ['erc20_token', 'ERC20Token'],
