@@ -508,7 +508,7 @@ fun instructions_of_expression :: "codegen_context \<Rightarrow> astExpression =
       values
     ) True num_values
   " |
-  "instructions_of_expression context (SendEther (address_expression, value_expression)) = [
+  "instructions_of_expression context (SendEther (address_expression, value_expression)) = wrap_reentrancy ([
     Stack (PUSH_N [0]),
     Stack (PUSH_N [0]),
     Stack (PUSH_N [0]),
@@ -517,12 +517,12 @@ fun instructions_of_expression :: "codegen_context \<Rightarrow> astExpression =
     @ instructions_of_expression context address_expression
     @ [
     (* For the time being, forward all of the gas *)
-    Stack (PUSH_N (word_rsplit ((word_cat (1::1 word) (0::255 word))::256 word))),
+    Info GAS,
     Misc CALL
   ] @ branch_if [
     (* Call was successful, push unit onto the stack *)
     Stack (PUSH_N [NULL_POINTER_ADDRESS])
-  ] REVERT_WITH_NO_DATA" |
+  ] REVERT_WITH_NO_DATA)" |
   "instructions_of_expression context (IfExpression (condition_expression, true_expression, false_expression)) =
     instructions_of_expression context condition_expression @
     branch_if
@@ -689,7 +689,7 @@ fun function_body_to_instructions :: "codegen_context \<Rightarrow> ast_function
     (0, fetch_state (r_codegen_state_type context)),
     (1, [Swap 0] (* argument is second element on the stack at point of execution *))
   ] @ instructions_to_call_function_of_name context modifiee_name)" |
-  "function_body_to_instructions context (FunctionModifier (modifiee_name, UpdatingState)) _ = wrap_reentrancy (create_full_record [
+  "function_body_to_instructions context (FunctionModifier (modifiee_name, UpdatingState)) _ = check_reentrancy (create_full_record [
     (0, fetch_state (r_codegen_state_type context)),
     (1, [Swap 0] (* argument is second element on the stack at point of execution *))
   ] @ instructions_to_call_function_of_name context modifiee_name @
