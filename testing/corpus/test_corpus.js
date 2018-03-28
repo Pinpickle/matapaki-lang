@@ -37,9 +37,6 @@ async function timeFunction(toTime) {
 async function timeFunctionRepeats(toTime, repeats = 6) {
   const results = [];
 
-  // Discard a cold result
-  await timeFunction(toTime);
-
   for (let attempt = 0; attempt < repeats; attempt += 1) {
     results.push(await timeFunction(toTime));
   }
