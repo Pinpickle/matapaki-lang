@@ -103,7 +103,10 @@ fun count_max_let_binding :: "astExpression \<Rightarrow> nat" where
       max 
       (map (\<lambda>(key_expr, value_expr). max (count_max_let_binding key_expr) (count_max_let_binding value_expr)) update_exprs)
       0)" |
-  "count_max_let_binding (RequireExpression (condition_expression, pass_expression)) = max (count_max_let_binding condition_expression) (count_max_let_binding pass_expression)"
+  "count_max_let_binding (RequireExpression (condition_expression, pass_expression)) = max (count_max_let_binding condition_expression) (count_max_let_binding pass_expression)" |
+  "count_max_let_binding BalanceExpression = 0" |
+  "count_max_let_binding AddressExpression = 0" |
+  "count_max_let_binding ValueExpression = 0"
 
 fun place_offset_from_stored_address :: "nat \<Rightarrow> nat \<Rightarrow> inst list" where
   "place_offset_from_stored_address address offset = [
@@ -116,9 +119,39 @@ fun place_offset_from_stored_address :: "nat \<Rightarrow> nat \<Rightarrow> ins
 definition place_offset_from_frame_pointer :: "nat \<Rightarrow> inst list" where
   "place_offset_from_frame_pointer = place_offset_from_stored_address FRAME_POINTER_ADDRESS"
 
+definition find_function :: "codegen_context \<Rightarrow> String.literal \<Rightarrow> program_function option" where
+  "find_function context name = List.find (\<lambda>function. r_function_name function = name) (r_program_functions context)"
+
+definition branch_if :: "inst list \<Rightarrow> inst list \<Rightarrow> inst list" where
+  "branch_if true_instructions false_instructions = ( 
+    let jumped_true_instructions = [Pc JUMPDEST] @ true_instructions;
+        jumped_false_instructions = false_instructions @ [
+          Stack (PUSH_N (number_to_words_minimum (size (bytes_of_instructions jumped_true_instructions) + 3))),
+          Pc PC,
+          Arith ADD,
+          Pc JUMP
+        ] in [
+      Stack (PUSH_N (number_to_words_minimum (size (bytes_of_instructions jumped_false_instructions) + 3))),
+      Pc PC,
+      Arith ADD,
+      Pc JUMPI
+    ] @ jumped_false_instructions @ jumped_true_instructions @ [Pc JUMPDEST])"
+
+definition protect_function_payment :: "codegen_context \<Rightarrow> String.literal \<Rightarrow> inst list" where
+  "protect_function_payment context name = (case find_function context name of
+    Some function \<Rightarrow> (
+      if (type_is_payable (r_return_type function)) then []
+      (* If this function cannot be paid, make sure we don't let it *)
+      else [Stack (PUSH_N [0]), Info CALLVALUE, Arith inst_GT] @ (branch_if REVERT_WITH_NO_DATA [])
+    ) |
+    None \<Rightarrow> []
+  )"
+
+
 (* Assumes the argument to the function is on the top of the stack *)
-fun instructions_to_call_function_of_name :: "codegen_context \<Rightarrow> String.literal \<Rightarrow> inst list" where
-  "instructions_to_call_function_of_name context name = (* Stack: frame pointer, argument, ... *)
+fun instructions_to_call_function_of_name :: "codegen_context \<Rightarrow> String.literal \<Rightarrow> bool \<Rightarrow> inst list" where
+  "instructions_to_call_function_of_name context name is_init = (* Stack: frame pointer, argument, ... *)
+    (if is_init then protect_function_payment context name else []) @
     place_offset_from_frame_pointer 0 @ [
       (* Stack: argument, frame pointer, ... *)
       Swap 0,
@@ -204,21 +237,6 @@ fun fetch_state :: "astType \<Rightarrow> inst list" where
     Stack (PUSH_N (number_to_words_minimum (STORAGE_STATE_ADDRESS))),
     Storage SLOAD
   ]"
-
-definition branch_if :: "inst list \<Rightarrow> inst list \<Rightarrow> inst list" where
-  "branch_if true_instructions false_instructions = ( 
-    let jumped_true_instructions = [Pc JUMPDEST] @ true_instructions;
-        jumped_false_instructions = false_instructions @ [
-          Stack (PUSH_N (number_to_words_minimum (size (bytes_of_instructions jumped_true_instructions) + 3))),
-          Pc PC,
-          Arith ADD,
-          Pc JUMP
-        ] in [
-      Stack (PUSH_N (number_to_words_minimum (size (bytes_of_instructions jumped_false_instructions) + 3))),
-      Pc PC,
-      Arith ADD,
-      Pc JUMPI
-    ] @ jumped_false_instructions @ jumped_true_instructions @ [Pc JUMPDEST])"
 
 definition check_reentrancy :: "inst list \<Rightarrow> inst list" where
   "check_reentrancy instructions = [
@@ -489,7 +507,7 @@ fun instructions_of_expression :: "codegen_context \<Rightarrow> astExpression =
   )" |
   "instructions_of_expression context (FunctionApplication (name, argument)) =  
     (instructions_of_expression context argument) @
-    (instructions_to_call_function_of_name context name)
+    (instructions_to_call_function_of_name context name False)
   " |
   "instructions_of_expression context (RecordLiteral (values)) =
     create_full_record (
@@ -530,6 +548,9 @@ fun instructions_of_expression :: "codegen_context \<Rightarrow> astExpression =
       (instructions_of_expression context false_expression)
   " |
   "instructions_of_expression context SenderExpression = [Info CALLER]" |
+  "instructions_of_expression context AddressExpression = [Info ADDRESS]" |
+  "instructions_of_expression context BalanceExpression = [Info ADDRESS, Info BALANCE]" |
+  "instructions_of_expression context ValueExpression = [Info CALLVALUE]" |
   "instructions_of_expression context (NewMapping _) = [Stack (PUSH_N [0])]" |
   "instructions_of_expression context (MappingUpdate (mapping_expression, entries_expressions)) = (instructions_of_expression context mapping_expression) @ update_mapping (map (\<lambda>(key_expression, value_expression). (
     instructions_of_expression context key_expression,
@@ -688,11 +709,11 @@ fun function_body_to_instructions :: "codegen_context \<Rightarrow> ast_function
   "function_body_to_instructions context (FunctionModifier (modifiee_name, WithState)) _ = check_reentrancy (create_full_record [
     (0, fetch_state (r_codegen_state_type context)),
     (1, [Swap 0] (* argument is second element on the stack at point of execution *))
-  ] @ instructions_to_call_function_of_name context modifiee_name)" |
+  ] @ instructions_to_call_function_of_name context modifiee_name False)" |
   "function_body_to_instructions context (FunctionModifier (modifiee_name, UpdatingState)) _ = check_reentrancy (create_full_record [
     (0, fetch_state (r_codegen_state_type context)),
     (1, [Swap 0] (* argument is second element on the stack at point of execution *))
-  ] @ instructions_to_call_function_of_name context modifiee_name @
+  ] @ instructions_to_call_function_of_name context modifiee_name False @
       (* The first element of the result record is the new state *)
       access_record [Dup 0] 0 @
       [Stack (PUSH_N (number_to_words_minimum STORAGE_STATE_ADDRESS))] @
@@ -745,7 +766,7 @@ fun return_32_byte_value_on_stack :: "unit \<Rightarrow> inst list" where
 fun name_of_type_string :: "astType \<Rightarrow> string" where
   "name_of_type_string TInt = ''int256''" |
   "name_of_type_string TBool = ''bool''" |
-  "name_of_type_string TAddress = ''uint160''" |
+  "name_of_type_string TAddress = ''address''" |
   "name_of_type_string (TRecord []) = ''''" |
   "name_of_type_string (TRecord [(_, (_, record_type))]) = name_of_type_string record_type" |
   "name_of_type_string (TRecord ((_, (_, record_type)) # vals)) = List.concat [name_of_type_string record_type, '','',  name_of_type_string (TRecord vals)]" |
@@ -765,7 +786,6 @@ fun function_string_representation :: "String.literal \<Rightarrow> astType \<Ri
 
 fun function_signature :: "String.literal \<Rightarrow> astType \<Rightarrow> astType \<Rightarrow> byte list" where
   "function_signature name input_type output_type = take 4 (map (\<lambda>c. word_of_int (nat_of_char c)) (String.explode (keccak_of_string (function_string_representation name input_type output_type))))"
-    
 
 (* This function returns instructions that assumes there is a value
    of the given type at the top of the stack. These instructions take
@@ -845,7 +865,7 @@ fun check_and_execute_function :: "codegen_context \<Rightarrow> program_functio
     Stack POP] @
     (* [argument, input function signature, ...] *)
     extract_type_from_call_data (r_argument_type function) @
-    instructions_to_call_function_of_name context (r_function_name function) @
+    instructions_to_call_function_of_name context (r_function_name function) True @
     return_instructions_for_type (r_return_type function) in (
       init_instructions @ [
       Stack (PUSH_N (number_to_words_minimum (size (bytes_of_instructions call_instructions))))
@@ -874,7 +894,7 @@ fun functions_to_selection_instruction :: "codegen_context \<Rightarrow> program
 fun program_defined_init :: "codegen_context \<Rightarrow> inst list" where
   "program_defined_init context =  [
     Stack (PUSH_N [0]) (* Push unit as input to the function no arg *)
-  ] @ instructions_to_call_function_of_name context AST_INIT_NAME @ [
+  ] @ instructions_to_call_function_of_name context AST_INIT_NAME True @ [
     Stack (PUSH_N (number_to_words_minimum STORAGE_STATE_ADDRESS))
   ] @ save_state_at_address  (r_codegen_state_type context)"
 

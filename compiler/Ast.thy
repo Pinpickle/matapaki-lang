@@ -21,7 +21,7 @@ datatype astBinaryOperator
   | Divide
   | Mod
 
-datatype ast_effect = LocalRead | LocalWrite | Paying | ReadEnvironment
+datatype ast_effect = LocalRead | LocalWrite | Paying | ReadEnvironment | Payable
 
 datatype astType
   = TInt
@@ -48,6 +48,9 @@ datatype astExpression
   | SendEther "astExpression * astExpression"
   | IfExpression "astExpression * astExpression * astExpression"
   | SenderExpression
+  | BalanceExpression
+  | ValueExpression
+  | AddressExpression
   | RequireExpression "astExpression * astExpression"
   | NewMapping "astType * astType"
   | MappingAccess "astExpression * astExpression"
@@ -73,6 +76,7 @@ record ast_program =
 
 record typed_program = ast_program +
   r_exported_functions :: "ast_function_definition list"
+  r_init_function_payable :: bool
 
 definition "make_ast_function = ast_function_definition.make"
 definition "make_ast_program = ast_program.make"
@@ -87,5 +91,9 @@ fun option_of_either :: "('a, 'b) either \<Rightarrow> 'a option" where
 
 definition set_of_list :: "'a list \<Rightarrow> 'a set" where
   "set_of_list xs = set xs"
+
+fun type_is_payable :: "astType \<Rightarrow> bool" where
+  "type_is_payable ( TEffect (effects, _)) = (Payable \<in> effects)" |
+  "type_is_payable _ = False"
 
 end

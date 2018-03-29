@@ -2,7 +2,7 @@ State {
   money_claimed: Bool
 }
 
-fun init: { } -> { money_claimed: Bool }
+fun init: { } -> Effect (Payable) { money_claimed: Bool }
   arg -> {
     money_claimed = false
   }
@@ -15,7 +15,7 @@ fun claim_money_from_state: { state: { money_claimed: Bool }, arg: { } } -> Effe
         value = false
       })
     else (
-      let sent = (send 1 to sender!)!;
+      let sent = (send 1 to message.sender!)!;
       ({
         state = arg.state with {
           money_claimed = true

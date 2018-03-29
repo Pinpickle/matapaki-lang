@@ -189,6 +189,24 @@ fun either_type_of_expression :: "type_context \<Rightarrow> astExpression => (t
     else
       Left ()
   )" |
+  "either_type_of_expression context ValueExpression = (
+    if (r_is_effect_unwrap context) then
+      Right ((TEffect ({ Payable }, TInt), {}), ValueExpression)
+    else
+      Left ()
+  )" |
+  "either_type_of_expression context BalanceExpression = (
+    if (r_is_effect_unwrap context) then
+      Right ((TEffect ({ ReadEnvironment }, TInt), {}), BalanceExpression)
+    else
+      Left ()
+  )" |
+  "either_type_of_expression context AddressExpression = (
+    if (r_is_effect_unwrap context) then
+      Right ((TEffect ({ ReadEnvironment }, TAddress), {}), AddressExpression)
+    else
+      Left ()
+  )" |
   "either_type_of_expression context (MappingAccess (mapping_expression, key_expression)) = (
     case (either_type_of_expression context mapping_expression, either_type_of_expression context key_expression) of
       (Right ((TMapping (mapping_expression_key_type, mapping_expression_value_type), mapping_expression_effects), mapping_expression), Right ((key_expression_type, key_expression_effects), key_expression)) \<Rightarrow> (
@@ -309,6 +327,7 @@ fun context_of_program :: "ast_program \<Rightarrow> type_context" where
     r_state_type = r_program_state_type program
   \<rparr>"
 
+
 fun either_type_of_program :: "ast_program \<Rightarrow> (typed_program, unit) either" where
   "either_type_of_program program = (
     let context = context_of_program (program);
@@ -319,7 +338,8 @@ fun either_type_of_program :: "ast_program \<Rightarrow> (typed_program, unit) e
           if (size types = size correct_types) \<and> (is_init_definition_valid context init_function_definition) then Right \<lparr>
             r_defined_functions = correct_types,
             r_program_state_type = r_program_state_type program,
-            r_exported_functions = (filter r_exported  correct_types)
+            r_exported_functions = (filter r_exported  correct_types),
+            r_init_function_payable = (type_is_payable (r_return_type init_function_definition))
           \<rparr>
           else Left ()
         ) |

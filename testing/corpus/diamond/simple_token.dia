@@ -2,16 +2,16 @@ State [Address -> Int]
 
 fun init: { } -> Effect (ReadEnv) [Address -> Int]
   arg -> [Address -> Int] with [
-    sender! -> 1000000
+    message.sender! -> 1000000
   ]
 
 fun transfer_in_state: { state: [Address -> Int], arg: { recipient: Address, amount: Int } } -> Effect (ReadEnv) { state: [Address -> Int], value: { } }
   arg ->
-    require (arg.state[sender!] > arg.arg.amount) then
+    require (arg.state[message.sender!] > arg.arg.amount) then
     require (arg.state[arg.arg.recipient] + arg.arg.amount > arg.state[arg.arg.recipient]) then
     {
       state = arg.state with [
-        sender! -> arg.state[sender!] - arg.arg.amount,
+        message.sender! -> arg.state[message.sender!] - arg.arg.amount,
         arg.arg.recipient -> arg.state[arg.arg.recipient] + arg.arg.amount
       ],
       value = { }

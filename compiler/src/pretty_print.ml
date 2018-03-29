@@ -26,9 +26,10 @@ let pretty_print_ast_effect e =
     | Ast.LocalRead -> "Read"
     | Ast.LocalWrite -> "Write"
     | Ast.Paying -> "Paying"
-    | Ast.ReadEnvironment -> "ReadEnv";;
+    | Ast.ReadEnvironment -> "ReadEnv"
+    | Ast.Payable -> "Payable";;
 
-let rec list_of_set set =
+let list_of_set set =
   match set with
     | Set.Set xs -> xs;;
 
@@ -61,12 +62,15 @@ and pretty_print_ast_expression expression =
     | Ast.SendEther (address_expression, value_expression) -> "(send " ^ pretty_print_ast_expression value_expression ^ " to " ^ pretty_print_ast_expression address_expression ^ ")"
     | Ast.IfExpression (condition_expression, (true_expression, false_expression)) ->
         "if " ^ pretty_print_ast_expression condition_expression ^ " then \n  " ^ pretty_print_ast_expression true_expression ^ "\nelse\n  " ^ pretty_print_ast_expression false_expression
-    | Ast.SenderExpression -> "sender"
+    | Ast.SenderExpression -> "message.sender"
     | Ast.NewMapping (key_type, value_type) -> pretty_print_ast_type (Ast.TMapping (key_type, value_type))
     | Ast.MappingAccess (mapping_expression, key_expression) -> "(" ^ pretty_print_ast_expression mapping_expression ^ ")[" ^ pretty_print_ast_expression key_expression ^ "]"
     | Ast.MappingUpdate (mapping_expression, entries_expressions) -> "((" ^ pretty_print_ast_expression mapping_expression ^ ") with [" ^ 
       (String.concat "\n" (List.map (fun (key_expression, value_expression) -> "(" ^ pretty_print_ast_expression key_expression ^ ") -> (" ^ pretty_print_ast_expression value_expression ^ ")") entries_expressions))
-    | Ast.RequireExpression (condition_expression, pass_expression) -> "require (" ^ pretty_print_ast_expression condition_expression ^ ") then (" ^ pretty_print_ast_expression pass_expression ^ ")";;
+    | Ast.RequireExpression (condition_expression, pass_expression) -> "require (" ^ pretty_print_ast_expression condition_expression ^ ") then (" ^ pretty_print_ast_expression pass_expression ^ ")"
+    | Ast.BalanceExpression -> "this.balance"
+    | Ast.ValueExpression -> "message.value"
+    | Ast.AddressExpression -> "this.address";;
 
 let pretty_print_ast_modifier modifier =
   match modifier with

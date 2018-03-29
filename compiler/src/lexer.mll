@@ -33,11 +33,16 @@ rule read =
   | "Read" { READ }
   | "Paying" { PAYING }
   | "ReadEnv" { READ_ENVIRONMENT }
+  | "Payable" { PAYABLE }
   | "Effect" { TEFFECT }
   | "=" { EQUALS }
   | "true" { BOOL true }
   | "false" { BOOL false }
   | "export" { EXPORT }
+  | "this.address" { THIS_ADDRESS }
+  | "this.balance" { THIS_BALANCE }
+  | "message.sender" { MESSAGE_SENDER }
+  | "message.value" { MESSAGE_VALUE }
   | "{" { RECORD_OPEN }
   | "}" { RECORD_CLOSE }
   | "[" { SQUARE_OPEN }
@@ -70,7 +75,6 @@ rule read =
   | "require" { REQUIRE }
   | "then" { THEN }
   | "else" { ELSE }
-  | "sender" { SENDER }
   | "with_state" { WITH_STATE }
   | "updating_state" { UPDATING_STATE }
   | identifier { IDENTIFIER (Lexing.lexeme lexbuf) }

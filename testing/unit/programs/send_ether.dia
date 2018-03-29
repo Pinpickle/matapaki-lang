@@ -1,6 +1,6 @@
 State { }
 
-fun init: { } -> { }
+fun init: { } -> Effect (Payable) { }
   arg -> { }
 
 export fun send_ether_to_address: { } -> Effect (Paying) { }

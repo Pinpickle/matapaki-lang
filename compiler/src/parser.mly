@@ -47,8 +47,8 @@
 %token IF
 %token THEN
 %token ELSE
-%token SENDER
 %token READ_ENVIRONMENT
+%token PAYABLE
 %token SQUARE_OPEN
 %token SQUARE_CLOSE
 %token REQUIRE
@@ -64,6 +64,10 @@
 %token MULTIPLY
 %token MOD
 %token TADDRESS
+%token THIS_ADDRESS
+%token THIS_BALANCE
+%token MESSAGE_SENDER
+%token MESSAGE_VALUE
 
 %left AND OR
 %left GREATER GREATER_EQUAL LESSER LESSER_EQUAL EQUALS
@@ -131,6 +135,7 @@ effect:
   | READ { Compiler_theory.Ast.LocalRead }
   | PAYING { Compiler_theory.Ast.Paying }
   | READ_ENVIRONMENT { Compiler_theory.Ast.ReadEnvironment }
+  | PAYABLE { Compiler_theory.Ast.Payable }
   ;
 
 record_type:
@@ -221,7 +226,10 @@ expression_with_value:
   | mapping_expr = expression_with_value; WITH; SQUARE_OPEN; updates = separated_list(COMMA, mapping_update_value); SQUARE_CLOSE
     { Compiler_theory.Ast.MappingUpdate (mapping_expr, updates) }
   | e = expression_with_value; EXCLAMATION; { Compiler_theory.Ast.EffectUnwrap e }
-  | SENDER; { Compiler_theory.Ast.SenderExpression }
+  | MESSAGE_SENDER; { Compiler_theory.Ast.SenderExpression }
+  | MESSAGE_VALUE; { Compiler_theory.Ast.ValueExpression }
+  | THIS_BALANCE; { Compiler_theory.Ast.BalanceExpression }
+  | THIS_ADDRESS; { Compiler_theory.Ast.AddressExpression }
   | name = IDENTIFIER; argument = expression;
     { Compiler_theory.Ast.FunctionApplication (name, argument) }
   | iden = IDENTIFIER;

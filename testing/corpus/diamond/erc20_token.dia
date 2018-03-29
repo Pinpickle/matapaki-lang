@@ -11,7 +11,7 @@ fun init:
   arg -> {
     allowances = [Address -> [Address -> Int]],
     balances = [Address -> Int] with [
-      sender! -> totalSupply { }
+      message.sender! -> totalSupply { }
     ]
   }
 
@@ -64,8 +64,8 @@ fun transfer_in_state:
     value: Bool
   }
   arg ->
-    let from = sender!;
-    require arg.state.balances[sender!] >= arg.arg.tokens && arg.arg.tokens > 0 then
+    let from = message.sender!;
+    require arg.state.balances[message.sender!] >= arg.arg.tokens && arg.arg.tokens > 0 then
     {
       state = arg.state with {
         balances = arg.state.balances with [
@@ -98,7 +98,7 @@ fun transferFrom_in_state:
     value: Bool
   }
   arg ->
-    let facilitator = sender!;
+    let facilitator = message.sender!;
     let allowed_tokens = arg.state.allowances[arg.arg.from][facilitator];
     require 
       arg.state.balances[arg.arg.from] >= arg.arg.tokens && 
@@ -139,7 +139,7 @@ fun approve_in_state:
     value: Bool
   }
   arg ->
-    let owner = sender!;
+    let owner = message.sender!;
     require arg.arg.tokens >= 0 then
     {
       state = arg.state with {

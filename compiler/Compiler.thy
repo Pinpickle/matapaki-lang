@@ -31,6 +31,7 @@ export_code
     r_return_type
     r_argument_type
     r_exported_functions
+    r_init_function_payable
   in OCaml
   file "src/compiler_theory.ml"
 
