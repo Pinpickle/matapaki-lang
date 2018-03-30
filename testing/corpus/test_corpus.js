@@ -7,6 +7,7 @@ const testCases = [
   require('./tests/simple_token'),
   require('./tests/factorial'),
   require('./tests/erc20_token'),
+  require('./tests/open_auction'),
 ];
 
 async function getContractDeploymentMeasures({ interface, bytecode }) {
@@ -63,11 +64,11 @@ async function runTest({ interface, bytecode }, testCase) {
         deployedContract.setProvider(client.currentProvider);
 
         const method = await methodTest.create({ contract: deployedContract, coinbase, client });
-        
-        const result = await method.call({ from: coinbase, gas: 10000000 }).catch(error => {
+        const value = methodTest.value || 0;
+        const result = await method.call({ from: coinbase, gas: 10000000, value }).catch(error => {
           throw new Error(`Calling ${methodTest.name} failed! [${error.message}]`);
         });
-        const resultStats = await method.send({ from: coinbase, gas: 10000000 });
+        const resultStats = await method.send({ from: coinbase, gas: 10000000, value });
 
         if ((methodTest.test) && (!(await methodTest.test({ result, client, coinbase, contract: deployedContract })))) {
           throw new Error(`Testing ${methodTest.name} failed!`, methodTest.name);

@@ -26,7 +26,7 @@ let mutability_of_type return_type =
     | Compiler_theory.Ast.TEffect (effects, _) -> 
       let mutabilities = 
         List.sort
-          (fun a b -> index_of_state_mutability a - index_of_state_mutability b)
+          (fun a b -> index_of_state_mutability b - index_of_state_mutability a)
           (List.map (mutability_of_effect) (list_of_set effects))
       in (match mutabilities with
         | mutability :: _ -> mutability

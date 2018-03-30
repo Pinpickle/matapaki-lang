@@ -1,0 +1,171 @@
+State {
+  beneficiary: Address,
+  highest_bid: Int,
+  highest_bidder: Address,
+  auction_running: Bool,
+  pending_returns: [Address -> Int]
+}
+
+fun init:
+  { } -> Effect (ReadEnv)
+    {
+      beneficiary: Address,
+      highest_bid: Int,
+      highest_bidder: Address,
+      auction_running: Bool,
+      pending_returns: [Address -> Int]
+    }
+  arg -> {
+    beneficiary = message.sender!,
+    highest_bid = 0,
+    highest_bidder = @0,
+    auction_running = true,
+    pending_returns = [Address -> Int]
+  }
+
+fun bid_in_state:
+  {
+    state: {
+      beneficiary: Address,
+      highest_bid: Int,
+      highest_bidder: Address,
+      auction_running: Bool,
+      pending_returns: [Address -> Int]
+    },
+    arg: { }
+  } -> Effect (Payable, ReadEnv) {
+    state: {
+      beneficiary: Address,
+      highest_bid: Int,
+      highest_bidder: Address,
+      auction_running: Bool,
+      pending_returns: [Address -> Int]
+    },
+    value: { }
+  }
+  arg ->
+    require
+      arg.state.auction_running && 
+      message.value! > arg.state.highest_bid then
+    {
+      state = arg.state with {
+        highest_bid = message.value!,
+        highest_bidder = message.sender!,
+        pending_returns = arg.state.pending_returns with [
+          arg.state.highest_bidder ->
+            arg.state.pending_returns[arg.state.highest_bidder] + arg.state.highest_bid
+        ]
+      },
+      value = { }
+    }
+
+export fun bid: { } -> Effect (Payable, ReadEnv, Write, Read) { }
+  as bid_in_state updating_state
+
+fun withdraw_in_state:
+  {
+    state: {
+      beneficiary: Address,
+      highest_bid: Int,
+      highest_bidder: Address,
+      auction_running: Bool,
+      pending_returns: [Address -> Int]
+    },
+    arg: { }
+  } -> Effect (Paying, ReadEnv) {
+    state: {
+      beneficiary: Address,
+      highest_bid: Int,
+      highest_bidder: Address,
+      auction_running: Bool,
+      pending_returns: [Address -> Int]
+    },
+    value: { }
+  }
+  arg ->
+    let receiver = message.sender!;
+    let amount = arg.state.pending_returns[receiver];
+    if (amount > 0) then
+      let sent = (send amount to receiver)!;
+      {
+        state = arg.state with {
+          pending_returns = arg.state.pending_returns with [
+            receiver -> 0
+          ]
+        },
+        value = { }
+      }
+    else {
+      state = arg.state,
+      value = { }
+    }
+
+export fun withdraw: { } -> Effect (Paying, ReadEnv, Read, Write) { }
+  as withdraw_in_state updating_state
+
+fun highest_bidder_from_state: 
+  {
+    state: {
+      beneficiary: Address,
+      highest_bid: Int,
+      highest_bidder: Address,
+      auction_running: Bool,
+      pending_returns: [Address -> Int]
+    },
+    arg: { }
+  } -> Address 
+  arg -> arg.state.highest_bidder
+
+export fun highest_bidder: { } -> Effect (Read) Address
+  as highest_bidder_from_state with_state
+
+fun highest_bid_from_state:
+  {
+    state: {
+      beneficiary: Address,
+      highest_bid: Int,
+      highest_bidder: Address,
+      auction_running: Bool,
+      pending_returns: [Address -> Int]
+    },
+    arg: { }
+  } -> Int 
+  arg -> arg.state.highest_bid
+
+export fun highest_bid: { } -> Effect (Read) Int
+  as highest_bid_from_state with_state
+
+fun end_auction_in_state: 
+  {
+    state: {
+      beneficiary: Address,
+      highest_bid: Int,
+      highest_bidder: Address,
+      auction_running: Bool,
+      pending_returns: [Address -> Int]
+    },
+    arg: { }
+  } -> Effect (Paying, ReadEnv) {
+    state: {
+      beneficiary: Address,
+      highest_bid: Int,
+      highest_bidder: Address,
+      auction_running: Bool,
+      pending_returns: [Address -> Int]
+    },
+    value: { }
+  }
+  arg ->
+    require
+      message.sender! = arg.state.beneficiary &&
+      arg.state.auction_running then
+    let sent = (send arg.state.highest_bid to arg.state.beneficiary)!;
+    {
+      state = arg.state with {
+        auction_running = false
+      },
+      value = { }
+    }
+
+export fun end_auction: { } -> Effect (Read, Write, Paying, ReadEnv) { }
+  as end_auction_in_state updating_state
