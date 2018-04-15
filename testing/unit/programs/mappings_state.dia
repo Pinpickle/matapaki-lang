@@ -1,18 +1,18 @@
 State {
-  one: [Int -> Int],
-  two: [Int -> Int]
+  one: [Uint -> Uint],
+  two: [Uint -> Uint]
 }
 
-fun init: { } -> { one: [Int -> Int], two: [Int -> Int] }
+fun init: { } -> { one: [Uint -> Uint], two: [Uint -> Uint] }
   arg -> {
-    one = [Int -> Int],
-    two = [Int -> Int]
+    one = [Uint -> Uint],
+    two = [Uint -> Uint]
   }
 
-fun get_value_from_one_in_state: { state: { one: [Int -> Int], two: [Int -> Int] }, arg: Int } -> Int
+fun get_value_from_one_in_state: { state: { one: [Uint -> Uint], two: [Uint -> Uint] }, arg: Uint } -> Uint
   arg -> arg.state.one[arg.arg]
 
-fun set_value_in_one_in_state: { state: { one: [Int -> Int], two: [Int -> Int] }, arg: { key: Int, value: Int } } -> { state: { one: [Int -> Int], two: [Int -> Int] }, value: { } }
+fun set_value_in_one_in_state: { state: { one: [Uint -> Uint], two: [Uint -> Uint] }, arg: { key: Uint, value: Uint } } -> { state: { one: [Uint -> Uint], two: [Uint -> Uint] }, value: { } }
   arg -> {
     state = arg.state with {
       one = arg.state.one with [
@@ -22,7 +22,7 @@ fun set_value_in_one_in_state: { state: { one: [Int -> Int], two: [Int -> Int] }
     value = { }
   }
 
-fun swap_one_and_two_in_state: { state: { one: [Int -> Int], two: [Int -> Int] }, arg: { } } -> { state: { one: [Int -> Int], two: [Int -> Int] }, value: { } }
+fun swap_one_and_two_in_state: { state: { one: [Uint -> Uint], two: [Uint -> Uint] }, arg: { } } -> { state: { one: [Uint -> Uint], two: [Uint -> Uint] }, value: { } }
   arg -> {
     state = {
       one = arg.state.two,
@@ -31,10 +31,10 @@ fun swap_one_and_two_in_state: { state: { one: [Int -> Int], two: [Int -> Int] }
     value = { }
   }
 
-export fun get_from_one: Int -> Effect (Read) Int
+export fun get_from_one: Uint -> Effect (Read) Uint
   as get_value_from_one_in_state with_state
 
-export fun set_to_one: { key: Int, value: Int } -> Effect (Read, Write) { }
+export fun set_to_one: { key: Uint, value: Uint } -> Effect (Read, Write) { }
   as set_value_in_one_in_state updating_state
 
 export fun swap_one_and_two: { } -> Effect (Read, Write) { }

@@ -3,12 +3,12 @@ State { }
 fun init: { } -> { }
   arg -> { }
 
-export fun single_let_binding: { } -> Int
+export fun single_let_binding: { } -> Uint
   arg ->
     let x = 5;
     x + 1
 
-export fun multiple_let_bindings: { } -> Int
+export fun multiple_let_bindings: { } -> Uint
   arg ->
     let x = 5;
     let y = 6;

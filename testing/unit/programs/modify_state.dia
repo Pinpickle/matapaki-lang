@@ -1,12 +1,12 @@
-State { x: Int, y: Int }
+State { x: Uint, y: Uint }
 
-fun init: { } -> { x: Int, y: Int }
+fun init: { } -> { x: Uint, y: Uint }
   arg -> { x = 5, y = 10 }
 
-fun x_from_state: { state: { x: Int, y: Int }, arg: { } } -> Int
+fun x_from_state: { state: { x: Uint, y: Uint }, arg: { } } -> Uint
   arg -> arg.state.x
 
-fun increase_x_in_state: { state: { x: Int, y: Int }, arg: { } } -> { state: { x: Int, y: Int }, value: Int }
+fun increase_x_in_state: { state: { x: Uint, y: Uint }, arg: { } } -> { state: { x: Uint, y: Uint }, value: Uint }
   arg -> let new_x = arg.state.x + 1;
   {
     state = {
@@ -16,8 +16,8 @@ fun increase_x_in_state: { state: { x: Int, y: Int }, arg: { } } -> { state: { x
     value = new_x
   }
 
-export fun get_x: { } -> Effect (Read) Int
+export fun get_x: { } -> Effect (Read) Uint
   as x_from_state with_state
 
-export fun inc_x: { } -> Effect (Read, Write) Int
+export fun inc_x: { } -> Effect (Read, Write) Uint
   as increase_x_in_state updating_state

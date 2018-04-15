@@ -16,7 +16,7 @@
 %token RIGHT_PAREN
 %token <bool> BOOL
 %token <Big_int.big_int> INT
-%token TINT
+%token TUINT
 %token TBOOL
 %token LET
 %token <string> IDENTIFIER
@@ -117,7 +117,7 @@ function_list_rev:
   | function_def = function_block; rest = function_list_rev { function_def :: rest }
 
 type_expr:
-  | TINT { Compiler_theory.Ast.TInt }
+  | TUINT { Compiler_theory.Ast.TUint }
   | TBOOL { Compiler_theory.Ast.TBool }
   | TADDRESS { Compiler_theory.Ast.TAddress }
   | m = mapping_type { Compiler_theory.Ast.TMapping m }
@@ -238,9 +238,9 @@ expression_with_value:
 
 value:
   | n = INT
-    { Compiler_theory.Ast.Integer (Compiler_theory.Arith.Int_of_integer (n)) }
+    { Compiler_theory.Ast.UInteger (Compiler_theory.Arith.nat_of_integer (n)) }
   | b = BOOL
     { Compiler_theory.Ast.Bool b }
   | AT; n = INT
-    { Compiler_theory.Ast.AddressLiteral (Compiler_theory.Arith.Int_of_integer (n)) }
+    { Compiler_theory.Ast.AddressLiteral (Compiler_theory.Arith.nat_of_integer (n)) }
   ;

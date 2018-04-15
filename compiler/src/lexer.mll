@@ -13,7 +13,7 @@
         }
 }
 
-let int = '-' ? ['0'-'9'] ['0'-'9']*
+let int = ['0'-'9'] ['0'-'9']*
 let white = [' ' '\t']+
 let newline = '\r' | '\n' | "\r\n"
 let identifier = ['a'-'z' 'A'-'Z'] ['a'-'z' 'A'-'Z' '0'-'9' '_']*
@@ -58,7 +58,7 @@ rule read =
   | ">=" { GREATER_EQUAL }
   | "<" { LESSER }
   | "<=" { LESSER_EQUAL }
-  | "Int" { TINT }
+  | "Uint" { TUINT }
   | "Bool" { TBOOL }
   | "Address" { TADDRESS }
   | ":" { COLON }

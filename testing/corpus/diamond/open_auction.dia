@@ -1,45 +1,45 @@
 State {
   beneficiary: Address,
-  highest_bid: Int,
+  highest_bid: Uint,
   highest_bidder: Address,
   auction_running: Bool,
-  pending_returns: [Address -> Int]
+  pending_returns: [Address -> Uint]
 }
 
 fun init:
   { } -> Effect (ReadEnv)
     {
       beneficiary: Address,
-      highest_bid: Int,
+      highest_bid: Uint,
       highest_bidder: Address,
       auction_running: Bool,
-      pending_returns: [Address -> Int]
+      pending_returns: [Address -> Uint]
     }
   arg -> {
     beneficiary = message.sender!,
     highest_bid = 0,
     highest_bidder = @0,
     auction_running = true,
-    pending_returns = [Address -> Int]
+    pending_returns = [Address -> Uint]
   }
 
 fun bid_in_state:
   {
     state: {
       beneficiary: Address,
-      highest_bid: Int,
+      highest_bid: Uint,
       highest_bidder: Address,
       auction_running: Bool,
-      pending_returns: [Address -> Int]
+      pending_returns: [Address -> Uint]
     },
     arg: { }
   } -> Effect (Payable, ReadEnv) {
     state: {
       beneficiary: Address,
-      highest_bid: Int,
+      highest_bid: Uint,
       highest_bidder: Address,
       auction_running: Bool,
-      pending_returns: [Address -> Int]
+      pending_returns: [Address -> Uint]
     },
     value: { }
   }
@@ -66,19 +66,19 @@ fun withdraw_in_state:
   {
     state: {
       beneficiary: Address,
-      highest_bid: Int,
+      highest_bid: Uint,
       highest_bidder: Address,
       auction_running: Bool,
-      pending_returns: [Address -> Int]
+      pending_returns: [Address -> Uint]
     },
     arg: { }
   } -> Effect (Paying, ReadEnv) {
     state: {
       beneficiary: Address,
-      highest_bid: Int,
+      highest_bid: Uint,
       highest_bidder: Address,
       auction_running: Bool,
-      pending_returns: [Address -> Int]
+      pending_returns: [Address -> Uint]
     },
     value: { }
   }
@@ -107,10 +107,10 @@ fun highest_bidder_from_state:
   {
     state: {
       beneficiary: Address,
-      highest_bid: Int,
+      highest_bid: Uint,
       highest_bidder: Address,
       auction_running: Bool,
-      pending_returns: [Address -> Int]
+      pending_returns: [Address -> Uint]
     },
     arg: { }
   } -> Address 
@@ -123,35 +123,35 @@ fun highest_bid_from_state:
   {
     state: {
       beneficiary: Address,
-      highest_bid: Int,
+      highest_bid: Uint,
       highest_bidder: Address,
       auction_running: Bool,
-      pending_returns: [Address -> Int]
+      pending_returns: [Address -> Uint]
     },
     arg: { }
-  } -> Int 
+  } -> Uint 
   arg -> arg.state.highest_bid
 
-export fun highest_bid: { } -> Effect (Read) Int
+export fun highest_bid: { } -> Effect (Read) Uint
   as highest_bid_from_state with_state
 
 fun end_auction_in_state: 
   {
     state: {
       beneficiary: Address,
-      highest_bid: Int,
+      highest_bid: Uint,
       highest_bidder: Address,
       auction_running: Bool,
-      pending_returns: [Address -> Int]
+      pending_returns: [Address -> Uint]
     },
     arg: { }
   } -> Effect (Paying, ReadEnv) {
     state: {
       beneficiary: Address,
-      highest_bid: Int,
+      highest_bid: Uint,
       highest_bidder: Address,
       auction_running: Bool,
-      pending_returns: [Address -> Int]
+      pending_returns: [Address -> Uint]
     },
     value: { }
   }

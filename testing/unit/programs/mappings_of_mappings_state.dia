@@ -1,12 +1,12 @@
-State [Int -> [Int -> Int]]
+State [Uint -> [Uint -> Uint]]
 
-fun init: { } -> [Int -> [Int -> Int]]
-  arg -> [Int -> [Int -> Int]]
+fun init: { } -> [Uint -> [Uint -> Uint]]
+  arg -> [Uint -> [Uint -> Uint]]
 
-fun get_from_state: { state: [Int -> [Int -> Int]], arg: { key1: Int, key2: Int } } -> Int
+fun get_from_state: { state: [Uint -> [Uint -> Uint]], arg: { key1: Uint, key2: Uint } } -> Uint
   arg -> arg.state[arg.arg.key1][arg.arg.key2]
 
-fun set_in_state: { state: [Int -> [Int -> Int]], arg: { key1: Int, key2: Int, value: Int } } -> { state: [Int -> [Int -> Int]], value: { } }
+fun set_in_state: { state: [Uint -> [Uint -> Uint]], arg: { key1: Uint, key2: Uint, value: Uint } } -> { state: [Uint -> [Uint -> Uint]], value: { } }
   arg -> {
     state = arg.state with [
       arg.arg.key1 -> arg.state[arg.arg.key1] with [
@@ -16,8 +16,8 @@ fun set_in_state: { state: [Int -> [Int -> Int]], arg: { key1: Int, key2: Int, v
     value = { }
   }
 
-export fun get: { key1: Int, key2: Int } -> Effect (Read) Int
+export fun get: { key1: Uint, key2: Uint } -> Effect (Read) Uint
   as get_from_state with_state
 
-export fun set: { key1: Int, key2: Int, value: Int } -> Effect (Read, Write) { }
+export fun set: { key1: Uint, key2: Uint, value: Uint } -> Effect (Read, Write) { }
   as set_in_state updating_state

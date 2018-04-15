@@ -62,7 +62,7 @@ fun location_of_function_name_in_context :: "codegen_context \<Rightarrow> Strin
   "location_of_function_name_in_context context name = location_of_function_name_in_functions INITIAL_INSTRUCTIONS_LENGTH (r_program_functions context) name"
 
 fun bytes_of_value :: "astValue \<Rightarrow> 8 word list" where
-  "bytes_of_value (Integer i) = number_to_words_minimum i" |
+  "bytes_of_value (UInteger i) = number_to_words_minimum i" |
   "bytes_of_value (Bool b) = (if b then [1] else [0])" |
   "bytes_of_value (AddressLiteral a) = number_to_words_minimum a"
 
@@ -70,12 +70,12 @@ fun instructions_of_binary_operator :: "astBinaryOperator \<Rightarrow> inst lis
   "instructions_of_binary_operator Plus = [Arith ADD]" |
   "instructions_of_binary_operator Minus = [Swap 0, Arith SUB]" |
   "instructions_of_binary_operator Multiply = [Arith MUL]" |
-  "instructions_of_binary_operator Divide = [Swap 0, Sarith SDIV]" |
-  "instructions_of_binary_operator Mod = [Swap 0, Sarith SMOD]" |
-  "instructions_of_binary_operator Greater = [Swap 0, Sarith SGT]" |
-  "instructions_of_binary_operator GreaterEqual = [Swap 0, Sarith SLT] @ BOOLEAN_NOT" |
-  "instructions_of_binary_operator Lesser = [Swap 0, Sarith SLT]" |
-  "instructions_of_binary_operator LesserEqual = [Swap 0, Sarith SGT] @ BOOLEAN_NOT" |
+  "instructions_of_binary_operator Divide = [Swap 0, Arith DIV]" |
+  "instructions_of_binary_operator Mod = [Swap 0, Arith MOD]" |
+  "instructions_of_binary_operator Greater = [Swap 0, Arith inst_GT]" |
+  "instructions_of_binary_operator GreaterEqual = [Swap 0, Arith inst_LT] @ BOOLEAN_NOT" |
+  "instructions_of_binary_operator Lesser = [Swap 0, Arith inst_LT]" |
+  "instructions_of_binary_operator LesserEqual = [Swap 0, Arith inst_GT] @ BOOLEAN_NOT" |
   "instructions_of_binary_operator Equal = [Arith inst_EQ]" |
   "instructions_of_binary_operator Or = [Bits inst_OR]" |
   "instructions_of_binary_operator And = [Bits inst_AND]"
@@ -593,7 +593,7 @@ definition "store_if_changed = [
 
 (* This function expects the top two values on the stack to be [address, value to save] *)
 fun save_state_at_address :: "astType \<Rightarrow> inst list" where
-  "save_state_at_address TInt = [Storage SSTORE]" |
+  "save_state_at_address TUint = [Storage SSTORE]" |
   "save_state_at_address TBool = [Storage SSTORE]" |
   "save_state_at_address TAddress = [Storage SSTORE]" |
   "save_state_at_address (TRecord record_values) =
@@ -764,7 +764,7 @@ fun return_32_byte_value_on_stack :: "unit \<Rightarrow> inst list" where
     ]"
 
 fun name_of_type_string :: "astType \<Rightarrow> string" where
-  "name_of_type_string TInt = ''int256''" |
+  "name_of_type_string TUint = ''uint256''" |
   "name_of_type_string TBool = ''bool''" |
   "name_of_type_string TAddress = ''address''" |
   "name_of_type_string (TRecord []) = ''''" |
@@ -791,7 +791,7 @@ fun function_signature :: "String.literal \<Rightarrow> astType \<Rightarrow> as
    of the given type at the top of the stack. These instructions take
    this value and returns it *)
 fun return_instructions_for_type :: "astType \<Rightarrow> inst list" where
-  "return_instructions_for_type TInt = return_32_byte_value_on_stack ()" |
+  "return_instructions_for_type TUint = return_32_byte_value_on_stack ()" |
   "return_instructions_for_type TBool = return_32_byte_value_on_stack ()" |
   "return_instructions_for_type TAddress = return_32_byte_value_on_stack ()" |
   "return_instructions_for_type (TRecord values) = [
@@ -820,7 +820,7 @@ fun return_instructions_for_type :: "astType \<Rightarrow> inst list" where
   "return_instructions_for_type _ = REVERT_WITH_NO_DATA (* Other types are impossible in a well-typed program *)"
 
 fun extract_type_from_call_data :: "astType \<Rightarrow> inst list" where
-  "extract_type_from_call_data TInt = [
+  "extract_type_from_call_data TUint = [
     Stack (PUSH_N [4]),
     Stack CALLDATALOAD
   ]" |

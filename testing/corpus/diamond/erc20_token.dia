@@ -1,65 +1,65 @@
 State {
-  allowances: [Address -> [Address -> Int]],
-  balances: [Address -> Int]
+  allowances: [Address -> [Address -> Uint]],
+  balances: [Address -> Uint]
 }
 
 fun init:
   { } -> Effect (ReadEnv) {
-    allowances: [Address -> [Address -> Int]],
-    balances: [Address -> Int]
+    allowances: [Address -> [Address -> Uint]],
+    balances: [Address -> Uint]
   }
   arg -> {
-    allowances = [Address -> [Address -> Int]],
-    balances = [Address -> Int] with [
+    allowances = [Address -> [Address -> Uint]],
+    balances = [Address -> Uint] with [
       message.sender! -> totalSupply { }
     ]
   }
 
-export fun totalSupply: { } -> Int arg -> 100000
+export fun totalSupply: { } -> Uint arg -> 100000
 
 fun balanceOf_from_state:
   {
     state: {
-      allowances: [Address -> [Address -> Int]],
-      balances: [Address -> Int]
+      allowances: [Address -> [Address -> Uint]],
+      balances: [Address -> Uint]
     },
     arg: Address
-  } -> Int
+  } -> Uint
   arg -> arg.state.balances[arg.arg]
 
-export fun balanceOf: Address -> Effect (Read) Int
+export fun balanceOf: Address -> Effect (Read) Uint
   as balanceOf_from_state with_state
 
 fun allowance_from_state:
   {
     state: {
-      allowances: [Address -> [Address -> Int]],
-      balances: [Address -> Int]
+      allowances: [Address -> [Address -> Uint]],
+      balances: [Address -> Uint]
     },
     arg: {
       tokenOwner: Address,
       spender: Address
     }
-  } -> Int
+  } -> Uint
   arg -> arg.state.allowances[arg.arg.tokenOwner][arg.arg.spender]
 
-export fun allowance: { tokenOwner: Address, spender: Address } -> Effect (Read) Int
+export fun allowance: { tokenOwner: Address, spender: Address } -> Effect (Read) Uint
   as allowance_from_state with_state
 
 fun transfer_in_state:
   {
     state: {
-      allowances: [Address -> [Address -> Int]],
-      balances: [Address -> Int]
+      allowances: [Address -> [Address -> Uint]],
+      balances: [Address -> Uint]
     },
     arg: {
       recipient: Address,
-      tokens: Int
+      tokens: Uint
     }
   } -> Effect (ReadEnv) {
     state: {
-      allowances: [Address -> [Address -> Int]],
-      balances: [Address -> Int]
+      allowances: [Address -> [Address -> Uint]],
+      balances: [Address -> Uint]
     },
     value: Bool
   }
@@ -76,24 +76,24 @@ fun transfer_in_state:
       value = true
     }
 
-export fun transfer: { recipient: Address, tokens: Int } -> Effect (Read, Write, ReadEnv) Bool
+export fun transfer: { recipient: Address, tokens: Uint } -> Effect (Read, Write, ReadEnv) Bool
   as transfer_in_state updating_state
 
 fun transferFrom_in_state:
   {
     state: {
-      allowances: [Address -> [Address -> Int]],
-      balances: [Address -> Int]
+      allowances: [Address -> [Address -> Uint]],
+      balances: [Address -> Uint]
     },
     arg: {
       from: Address,
       recipient: Address,
-      tokens: Int
+      tokens: Uint
     }
   } -> Effect (ReadEnv) {
     state: {
-      allowances: [Address -> [Address -> Int]],
-      balances: [Address -> Int]
+      allowances: [Address -> [Address -> Uint]],
+      balances: [Address -> Uint]
     },
     value: Bool
   }
@@ -118,23 +118,23 @@ fun transferFrom_in_state:
       value = true
     }
 
-export fun transferFrom: { from: Address, recipient: Address, tokens: Int } -> Effect (Read, Write, ReadEnv) Bool
+export fun transferFrom: { from: Address, recipient: Address, tokens: Uint } -> Effect (Read, Write, ReadEnv) Bool
   as transferFrom_in_state updating_state
 
 fun approve_in_state:
   {
     state: {
-      allowances: [Address -> [Address -> Int]],
-      balances: [Address -> Int]
+      allowances: [Address -> [Address -> Uint]],
+      balances: [Address -> Uint]
     },
     arg: {
       facilitator: Address,
-      tokens: Int
+      tokens: Uint
     }
   } -> Effect (ReadEnv) {
     state: {
-      allowances: [Address -> [Address -> Int]],
-      balances: [Address -> Int]
+      allowances: [Address -> [Address -> Uint]],
+      balances: [Address -> Uint]
     },
     value: Bool
   }
@@ -152,5 +152,5 @@ fun approve_in_state:
       value = true
     }
 
-export fun approve: { facilitator: Address, tokens: Int } -> Effect (Read, Write, ReadEnv) Bool
+export fun approve: { facilitator: Address, tokens: Uint } -> Effect (Read, Write, ReadEnv) Bool
   as approve_in_state updating_state

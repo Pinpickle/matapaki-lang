@@ -15,16 +15,16 @@ test('Bools equal', async t => {
   );
 });
 
-test('Ints equal', async t => {
+test('Uints equal', async t => {
   const { contract, coinbase } = await testDiamond({ pathName: __dirname + '/programs/compare.dia' });
 
   t.deepEqual(
-    await contract.methods.ints_equal(10, 5).call({ from: coinbase, gas: 40000 }),
+    await contract.methods.uints_equal(10, 5).call({ from: coinbase, gas: 40000 }),
     false,
   );
 
   t.deepEqual(
-    await contract.methods.ints_equal(10, 10).call({ from: coinbase, gas: 40000 }),
+    await contract.methods.uints_equal(10, 10).call({ from: coinbase, gas: 40000 }),
     true,
   );
 });
@@ -52,11 +52,6 @@ test('Greater', async t => {
   );
 
   t.deepEqual(
-    await contract.methods.greater(10, -5).call({ from: coinbase, gas: 40000 }),
-    true,
-  );
-
-  t.deepEqual(
     await contract.methods.greater(10, 10).call({ from: coinbase, gas: 40000 }),
     false,
   );
@@ -72,11 +67,6 @@ test('Greater or equal', async t => {
 
   t.deepEqual(
     await contract.methods.greater_equal(10, 5).call({ from: coinbase, gas: 40000 }),
-    true,
-  );
-
-  t.deepEqual(
-    await contract.methods.greater_equal(10, -5).call({ from: coinbase, gas: 40000 }),
     true,
   );
 
@@ -100,11 +90,6 @@ test('Lesser', async t => {
   );
 
   t.deepEqual(
-    await contract.methods.lesser(-5, 10).call({ from: coinbase, gas: 40000 }),
-    true,
-  );
-
-  t.deepEqual(
     await contract.methods.lesser(10, 10).call({ from: coinbase, gas: 40000 }),
     false,
   );
@@ -120,11 +105,6 @@ test('Greater or equal', async t => {
 
   t.deepEqual(
     await contract.methods.lesser_equal(5, 10).call({ from: coinbase, gas: 40000 }),
-    true,
-  );
-
-  t.deepEqual(
-    await contract.methods.lesser_equal(-5, 10).call({ from: coinbase, gas: 40000 }),
     true,
   );
 

@@ -1,22 +1,22 @@
-State { x: Int, y: Int }
+State { x: Uint, y: Uint }
 
-fun init: { } -> { x: Int, y: Int }
+fun init: { } -> { x: Uint, y: Uint }
   arg -> { x = 5, y = 10 }
 
-fun get_x_from_state: { state: { x: Int, y: Int }, arg: { } } -> Int
+fun get_x_from_state: { state: { x: Uint, y: Uint }, arg: { } } -> Uint
   arg -> arg.state.x
 
-fun get_y_plus_arg_from_state: { state: { x: Int, y: Int }, arg: Int } -> Int
+fun get_y_plus_arg_from_state: { state: { x: Uint, y: Uint }, arg: Uint } -> Uint
   arg -> (arg.state.y) + arg.arg
 
-fun subtract_from_state: { state: { x: Int, y: Int }, arg: { xmul: Int, ymul: Int } } -> Int
+fun subtract_from_state: { state: { x: Uint, y: Uint }, arg: { xmul: Uint, ymul: Uint } } -> Uint
   arg -> (arg.state.x - arg.arg.xmul) + (arg.state.y - arg.arg.ymul)
 
-export fun get_x: { } -> Effect (Read) Int
+export fun get_x: { } -> Effect (Read) Uint
   as get_x_from_state with_state
 
-export fun get_y_plus_arg: Int -> Effect (Read) Int
+export fun get_y_plus_arg: Uint -> Effect (Read) Uint
   as get_y_plus_arg_from_state with_state
 
-export fun x_and_y_combination: { xmul: Int, ymul: Int } -> Effect (Read) Int
+export fun x_and_y_combination: { xmul: Uint, ymul: Uint } -> Effect (Read) Uint
   as subtract_from_state with_state

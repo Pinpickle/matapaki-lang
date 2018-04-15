@@ -1,0 +1,13 @@
+State { }
+
+fun init: { } -> { }
+  arg -> { }
+
+export fun addition: { } -> Uint arg -> 10 + 5
+export fun subtraction: { } -> Uint arg -> 10 - 5
+export fun multiplication: { } -> Uint arg -> 11 * 30
+export fun division: { } -> Uint arg -> 15 / 5
+export fun division_remainder: { } -> Uint arg -> 16 / 5
+export fun mod: { } -> Uint arg -> 15 % 4
+export fun operator_presedence: { } -> Uint arg -> 10 + 1000 - 20 + 33 - (40 + 2) * 2
+export fun complicated: { } -> Uint arg -> ((10 + 15) + (10 - 13) + 33 * 3) / 2

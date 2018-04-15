@@ -2,7 +2,7 @@ const { test } = require('ava');
 const { testDiamond } = require('../utils/blockchain');
 
 test('Addition', async t => {
-  const { contract, coinbase } = await testDiamond({ pathName: __dirname + '/programs/int.dia' });
+  const { contract, coinbase } = await testDiamond({ pathName: __dirname + '/programs/uint.dia' });
 
   t.deepEqual(
     await contract.methods.addition().call({ from: coinbase, gas: 40000 }),
@@ -11,7 +11,7 @@ test('Addition', async t => {
 });
 
 test('Subtraction', async t => {
-  const { contract, coinbase } = await testDiamond({ pathName: __dirname + '/programs/int.dia' });
+  const { contract, coinbase } = await testDiamond({ pathName: __dirname + '/programs/uint.dia' });
 
   t.deepEqual(
     await contract.methods.subtraction().call({ from: coinbase, gas: 40000 }),
@@ -20,7 +20,7 @@ test('Subtraction', async t => {
 });
 
 test('Multiplication', async t => {
-  const { contract, coinbase } = await testDiamond({ pathName: __dirname + '/programs/int.dia' });
+  const { contract, coinbase } = await testDiamond({ pathName: __dirname + '/programs/uint.dia' });
 
   t.deepEqual(
     await contract.methods.multiplication().call({ from: coinbase, gas: 40000 }),
@@ -29,7 +29,7 @@ test('Multiplication', async t => {
 });
 
 test('Division', async t => {
-  const { contract, coinbase } = await testDiamond({ pathName: __dirname + '/programs/int.dia' });
+  const { contract, coinbase } = await testDiamond({ pathName: __dirname + '/programs/uint.dia' });
 
   t.deepEqual(
     await contract.methods.division().call({ from: coinbase, gas: 40000 }),
@@ -38,7 +38,7 @@ test('Division', async t => {
 });
 
 test('Division with remainder', async t => {
-  const { contract, coinbase } = await testDiamond({ pathName: __dirname + '/programs/int.dia' });
+  const { contract, coinbase } = await testDiamond({ pathName: __dirname + '/programs/uint.dia' });
 
   t.deepEqual(
     await contract.methods.division_remainder().call({ from: coinbase, gas: 40000 }),
@@ -47,7 +47,7 @@ test('Division with remainder', async t => {
 });
 
 test('Modulo', async t => {
-  const { contract, coinbase } = await testDiamond({ pathName: __dirname + '/programs/int.dia' });
+  const { contract, coinbase } = await testDiamond({ pathName: __dirname + '/programs/uint.dia' });
 
   t.deepEqual(
     await contract.methods.mod().call({ from: coinbase, gas: 40000 }),
@@ -56,7 +56,7 @@ test('Modulo', async t => {
 });
 
 test('Complicated', async t => {
-  const { contract, coinbase } = await testDiamond({ pathName: __dirname + '/programs/int.dia' });
+  const { contract, coinbase } = await testDiamond({ pathName: __dirname + '/programs/uint.dia' });
 
   t.deepEqual(
     await contract.methods.complicated().call({ from: coinbase, gas: 40000 }),
@@ -65,7 +65,7 @@ test('Complicated', async t => {
 });
 
 test('Operator presedence', async t => {
-  const { contract, coinbase } = await testDiamond({ pathName: __dirname + '/programs/int.dia' });
+  const { contract, coinbase } = await testDiamond({ pathName: __dirname + '/programs/uint.dia' });
 
   t.deepEqual(
     await contract.methods.operator_presedence().call({ from: coinbase, gas: 40000 }),

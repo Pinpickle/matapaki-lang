@@ -3,13 +3,13 @@ State { }
 fun init: { } -> { }
   arg -> { }
 
-export fun pay_me: { } -> Effect (Payable) Int
+export fun pay_me: { } -> Effect (Payable) Uint
   arg -> message.value!
 
 export fun sender: { } -> Effect (ReadEnv) Address
   arg -> message.sender!
 
-export fun my_balance: { } -> Effect (ReadEnv) Int
+export fun my_balance: { } -> Effect (ReadEnv) Uint
   arg -> this.balance!
 
 export fun my_address: { } -> Effect (ReadEnv) Address

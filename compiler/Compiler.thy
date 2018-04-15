@@ -14,13 +14,15 @@ export_code
     either_type_of_program
     name_of_type
     Plus
-    TInt
+    TUint
     WithState
     FunctionExpression
-    Integer
+    UInteger
     LocalRead
     int_of_integer
     integer_of_int
+    integer_of_nat
+    nat_of_integer
     set_of_list
     Right
     inst_code

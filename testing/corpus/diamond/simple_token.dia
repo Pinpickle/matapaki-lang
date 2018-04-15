@@ -1,11 +1,11 @@
-State [Address -> Int]
+State [Address -> Uint]
 
-fun init: { } -> Effect (ReadEnv) [Address -> Int]
-  arg -> [Address -> Int] with [
+fun init: { } -> Effect (ReadEnv) [Address -> Uint]
+  arg -> [Address -> Uint] with [
     message.sender! -> 1000000
   ]
 
-fun transfer_in_state: { state: [Address -> Int], arg: { recipient: Address, amount: Int } } -> Effect (ReadEnv) { state: [Address -> Int], value: { } }
+fun transfer_in_state: { state: [Address -> Uint], arg: { recipient: Address, amount: Uint } } -> Effect (ReadEnv) { state: [Address -> Uint], value: { } }
   arg ->
     require (arg.state[message.sender!] > arg.arg.amount) then
     require (arg.state[arg.arg.recipient] + arg.arg.amount > arg.state[arg.arg.recipient]) then
@@ -17,11 +17,11 @@ fun transfer_in_state: { state: [Address -> Int], arg: { recipient: Address, amo
       value = { }
     }
 
-fun balance_from_state: { state: [Address -> Int], arg: Address } -> Int
+fun balance_from_state: { state: [Address -> Uint], arg: Address } -> Uint
   arg -> arg.state[arg.arg]
 
-export fun transfer: { recipient: Address, amount: Int } -> Effect (ReadEnv, Read, Write) { }
+export fun transfer: { recipient: Address, amount: Uint } -> Effect (ReadEnv, Read, Write) { }
   as transfer_in_state updating_state
 
-export fun balance: Address -> Effect (Read) Int
+export fun balance: Address -> Effect (Read) Uint
   as balance_from_state with_state

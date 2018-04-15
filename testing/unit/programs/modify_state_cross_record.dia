@@ -1,15 +1,15 @@
-State { x: { value: Int }, y: { value: Int } }
+State { x: { value: Uint }, y: { value: Uint } }
 
-fun init: { } -> { x: { value: Int }, y: { value: Int } }
+fun init: { } -> { x: { value: Uint }, y: { value: Uint } }
   arg -> { x = { value = 5 }, y = { value = 6 } }
 
-fun x_from_state: { state: { x: { value: Int }, y: { value: Int } }, arg: { } } -> Int
+fun x_from_state: { state: { x: { value: Uint }, y: { value: Uint } }, arg: { } } -> Uint
   arg -> arg.state.x.value
 
-fun y_from_state: { state: { x: { value: Int }, y: { value: Int } }, arg: { } } -> Int
+fun y_from_state: { state: { x: { value: Uint }, y: { value: Uint } }, arg: { } } -> Uint
   arg -> arg.state.y.value
 
-fun move_x_to_y_in_state: { state: { x: { value: Int }, y: { value: Int } }, arg: { } } -> { state: { x: { value: Int }, y: { value: Int } }, value: { } }
+fun move_x_to_y_in_state: { state: { x: { value: Uint }, y: { value: Uint } }, arg: { } } -> { state: { x: { value: Uint }, y: { value: Uint } }, value: { } }
   arg -> {
     state = {
       x = arg.state.x,
@@ -18,10 +18,10 @@ fun move_x_to_y_in_state: { state: { x: { value: Int }, y: { value: Int } }, arg
     value = { }
   }
 
-export fun get_x: { } -> Effect (Read) Int
+export fun get_x: { } -> Effect (Read) Uint
   as x_from_state with_state
 
-export fun get_y: { } -> Effect (Read) Int
+export fun get_y: { } -> Effect (Read) Uint
   as y_from_state with_state
 
 export fun move_x_to_y: { } -> Effect (Read, Write) { }

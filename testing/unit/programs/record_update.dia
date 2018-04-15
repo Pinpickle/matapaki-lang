@@ -3,6 +3,6 @@ State { }
 fun init: { } -> { }
   arg -> { }
 
-export fun update_record: { } -> { x: Int, y: Int }
+export fun update_record: { } -> { x: Uint, y: Uint }
   arg -> 
     { x = 5, y = 5 } with { y = 10 }

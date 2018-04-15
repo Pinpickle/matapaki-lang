@@ -3,8 +3,8 @@ theory Ast
 begin
 
 datatype astValue =
-  Integer "int" |
-  AddressLiteral "int" |
+  UInteger "nat" |
+  AddressLiteral "nat" |
   Bool "bool"
 
 datatype astBinaryOperator
@@ -24,7 +24,7 @@ datatype astBinaryOperator
 datatype ast_effect = LocalRead | LocalWrite | Paying | ReadEnvironment | Payable
 
 datatype astType
-  = TInt
+  = TUint
   | TBool
   | Function "astType * astType"
   | TRecord "(nat * (String.literal * astType)) list"

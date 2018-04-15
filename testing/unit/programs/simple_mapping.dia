@@ -3,14 +3,14 @@ State { }
 fun init: { } -> { }
   arg -> { }
 
-fun create_mapping: { } -> [Int -> Int]
-  arg -> [Int -> Int] with [0 -> 1, 1 -> 2]
+fun create_mapping: { } -> [Uint -> Uint]
+  arg -> [Uint -> Uint] with [0 -> 1, 1 -> 2]
 
-export fun value_of: Int -> Int
+export fun value_of: Uint -> Uint
   index -> (create_mapping { })[index]
 
-export fun default_record: { } -> Int
-  arg -> ([Int -> { x: Int }])[0].x
+export fun default_record: { } -> Uint
+  arg -> ([Uint -> { x: Uint }])[0].x
 
-export fun value_of_mapping_of_mapping: { key1: Int, key2: Int } -> Int
-  keys -> ([Int -> [Int -> Int]] with [10 -> ([Int -> Int] with [20 -> 30])])[keys.key1][keys.key2]
+export fun value_of_mapping_of_mapping: { key1: Uint, key2: Uint } -> Uint
+  keys -> ([Uint -> [Uint -> Uint]] with [10 -> ([Uint -> Uint] with [20 -> 30])])[keys.key1][keys.key2]

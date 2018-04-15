@@ -3,8 +3,8 @@ State { }
 fun init: { } -> { }
   arg -> { }
 
-export fun add: { x: Int, y: Int } -> Int
+export fun add: { x: Uint, y: Uint } -> Uint
   arg -> arg.x + arg.y
 
-export fun subtract: { x: Int, y: Int } -> Int
+export fun subtract: { x: Uint, y: Uint } -> Uint
   arg -> arg.x - arg.y

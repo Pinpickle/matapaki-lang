@@ -3,17 +3,17 @@ State { }
 fun init: { } -> { }
   arg -> { }
 
-fun return_five: { } -> Int
+fun return_five: { } -> Uint
   arg -> 5
 
-fun add_seven: Int -> Int
+fun add_seven: Uint -> Uint
   x -> x + 7
 
-export fun single_call: { } -> Int
+export fun single_call: { } -> Uint
   arg -> return_five { }
 
-export fun wide_call: Int -> Int
+export fun wide_call: Uint -> Uint
   x -> ((return_five { }) + (add_seven x))
 
-export fun deep_call: { } -> Int
+export fun deep_call: { } -> Uint
   x -> add_seven (return_five { })

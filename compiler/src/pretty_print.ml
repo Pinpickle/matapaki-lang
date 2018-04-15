@@ -17,9 +17,9 @@ let pretty_print_binary_operator operator =
 
 let pretty_print_value value =
   match value with
-    | Ast.Integer n -> Big_int.string_of_big_int (Arith.integer_of_int n)
+    | Ast.UInteger n -> Big_int.string_of_big_int (Arith.integer_of_nat n)
     | Ast.Bool b -> string_of_bool b
-    | Ast.AddressLiteral n -> "@" ^ Big_int.string_of_big_int (Arith.integer_of_int n);;
+    | Ast.AddressLiteral n -> "@" ^ Big_int.string_of_big_int (Arith.integer_of_nat n);;
 
 let pretty_print_ast_effect e =
   match e with
@@ -35,7 +35,7 @@ let list_of_set set =
 
 let rec pretty_print_ast_type ast_type =
   match ast_type with
-    | Ast.TInt -> "Int"
+    | Ast.TUint -> "Int"
     | Ast.TBool -> "Bool"
     | Ast.TRecord types -> "{" ^
       String.concat ",\n" (List.map (fun (_, (name, name_type)) -> name ^ " : " ^ pretty_print_ast_type name_type) types)  ^ "}\n"

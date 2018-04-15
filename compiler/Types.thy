@@ -26,16 +26,16 @@ fun type_for_name_in_context :: "type_context \<Rightarrow> String.literal \<Rig
 
 definition either_type_of_binary_operator :: "astBinaryOperator * astType * astType \<Rightarrow> (astType, unit) either" where
   "either_type_of_binary_operator operator = (case operator of
-    (Plus, TInt, TInt) \<Rightarrow> Right TInt |
-    (Minus, TInt, TInt) \<Rightarrow> Right TInt |
-    (Multiply, TInt, TInt) \<Rightarrow> Right TInt |
-    (Divide, TInt, TInt) \<Rightarrow> Right TInt |
-    (Mod, TInt, TInt) \<Rightarrow> Right TInt |
-    (Greater, TInt, TInt) \<Rightarrow> Right TBool |
-    (GreaterEqual, TInt, TInt) \<Rightarrow> Right TBool |
-    (Lesser, TInt, TInt) \<Rightarrow> Right TBool |
-    (LesserEqual, TInt, TInt) \<Rightarrow> Right TBool |
-    (Equal, TInt, TInt) \<Rightarrow> Right TBool |
+    (Plus, TUint, TUint) \<Rightarrow> Right TUint |
+    (Minus, TUint, TUint) \<Rightarrow> Right TUint |
+    (Multiply, TUint, TUint) \<Rightarrow> Right TUint |
+    (Divide, TUint, TUint) \<Rightarrow> Right TUint |
+    (Mod, TUint, TUint) \<Rightarrow> Right TUint |
+    (Greater, TUint, TUint) \<Rightarrow> Right TBool |
+    (GreaterEqual, TUint, TUint) \<Rightarrow> Right TBool |
+    (Lesser, TUint, TUint) \<Rightarrow> Right TBool |
+    (LesserEqual, TUint, TUint) \<Rightarrow> Right TBool |
+    (Equal, TUint, TUint) \<Rightarrow> Right TBool |
     (Equal, TBool, TBool) \<Rightarrow> Right TBool |
     (Equal, TAddress, TAddress) \<Rightarrow> Right TBool |
     (Or, TBool, TBool) \<Rightarrow> Right TBool |
@@ -52,7 +52,7 @@ fun either_type_of_either_binary_operator :: "astBinaryOperator * (typed_ast, un
   "either_type_of_either_binary_operator (_, _, _) = Left ()"
 
 fun type_of_value :: "astValue \<Rightarrow> astType" where
-  "type_of_value (Integer _) = TInt" |
+  "type_of_value (UInteger _) = TUint" |
   "type_of_value (Bool _) = TBool" |
   "type_of_value (AddressLiteral _) = TAddress"
 
@@ -61,7 +61,7 @@ fun is_effectful_function_unwrapped :: "type_context \<Rightarrow> astType \<Rig
   "is_effectful_function_unwrapped _ _ = True"
 
 fun is_type_key_mapping :: "astType \<Rightarrow> bool" where
-  "is_type_key_mapping TInt = True" |
+  "is_type_key_mapping TUint = True" |
   "is_type_key_mapping TBool = True" |
   "is_type_key_mapping TAddress = True" |
   "is_type_key_mapping _ = False"
@@ -168,7 +168,7 @@ fun either_type_of_expression :: "type_context \<Rightarrow> astExpression => (t
     let new_context = context\<lparr> r_is_effect_unwrap := False \<rparr> in
     case (either_type_of_expression new_context address_expression, either_type_of_expression new_context value_expression) of
       (Right ((address_expression_type, address_expression_effects), address_expression), Right ((value_expression_type, value_expression_effects), value_expression)) \<Rightarrow>
-        if (address_expression_type = TAddress \<and> value_expression_type = TInt \<and> r_is_effect_unwrap context)  then
+        if (address_expression_type = TAddress \<and> value_expression_type = TUint \<and> r_is_effect_unwrap context)  then
           Right ((TEffect({ Paying }, TUnit), address_expression_effects \<union> value_expression_effects), SendEther (address_expression, value_expression))
         else Left () |
       _ \<Rightarrow> Left ()
@@ -191,13 +191,13 @@ fun either_type_of_expression :: "type_context \<Rightarrow> astExpression => (t
   )" |
   "either_type_of_expression context ValueExpression = (
     if (r_is_effect_unwrap context) then
-      Right ((TEffect ({ Payable }, TInt), {}), ValueExpression)
+      Right ((TEffect ({ Payable }, TUint), {}), ValueExpression)
     else
       Left ()
   )" |
   "either_type_of_expression context BalanceExpression = (
     if (r_is_effect_unwrap context) then
-      Right ((TEffect ({ ReadEnvironment }, TInt), {}), BalanceExpression)
+      Right ((TEffect ({ ReadEnvironment }, TUint), {}), BalanceExpression)
     else
       Left ()
   )" |
@@ -255,11 +255,11 @@ fun either_type_of_expression :: "type_context \<Rightarrow> astExpression => (t
 
 (* Whether a type can be an input or output *)
 fun is_type_simple :: "astType \<Rightarrow> bool" where
-  "is_type_simple TInt = True" |
+  "is_type_simple TUint = True" |
   "is_type_simple TBool = True" |
   "is_type_simple TAddress = True" |
   "is_type_simple (TRecord values) = (
-    List.list_all (\<lambda>(_, (_, record_type)). record_type = TInt \<or> record_type = TBool \<or> record_type = TAddress) values)" |
+    List.list_all (\<lambda>(_, (_, record_type)). record_type = TUint \<or> record_type = TBool \<or> record_type = TAddress) values)" |
   "is_type_simple (TEffect (_, type)) = is_type_simple type" |
   "is_type_simple _ = False"
 

@@ -3,7 +3,7 @@ State { }
 fun init: { } -> { }
   arg -> { }
 
-export fun factorial: Int -> Int
+export fun factorial: Uint -> Uint
   n ->
     require n >= 0 then
     if (n = 0) then
