@@ -119,4 +119,4 @@ function exportTimesCSV() {
 }
 
 exportTestsCSV();
-
+exportTimesCSV();

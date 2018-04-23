@@ -8,8 +8,8 @@ module.exports = {
     },
     {
       name: 'subtraction',
-      create: ({ contract }) => contract.methods.subtract(5, 10),
-      test: ({ result }) => result === '-5',
+      create: ({ contract }) => contract.methods.subtract(10, 5),
+      test: ({ result }) => result === '5',
     },
   ],
 };

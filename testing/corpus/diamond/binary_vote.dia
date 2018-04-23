@@ -1,0 +1,105 @@
+State {
+  yes_votes: Uint,
+  no_votes: Uint,
+  votes_done: [Address -> Bool],
+  vote_running: Bool,
+  runner: Address
+}
+
+fun init:
+  { } -> Effect (ReadEnv) {
+    yes_votes: Uint,
+    no_votes: Uint,
+    votes_done: [Address -> Bool],
+    vote_running: Bool,
+    runner: Address
+  }
+  x -> {
+    yes_votes = 0,
+    no_votes = 0,
+    votes_done = [Address -> Bool],
+    vote_running = true,
+    runner = message.sender!
+  }
+
+fun vote_in_state: {
+    state: {
+      yes_votes: Uint,
+      no_votes: Uint,
+      votes_done: [Address -> Bool],
+      vote_running: Bool,
+      runner: Address
+    },
+    arg: Bool
+  } -> Effect (ReadEnv){
+    state: {
+      yes_votes: Uint,
+      no_votes: Uint,
+      votes_done: [Address -> Bool],
+      vote_running: Bool,
+      runner: Address
+    },
+    value: { } 
+  }
+  arg ->
+    let voter = message.sender!;
+    require (arg.state.votes_done[voter] = false && arg.state.vote_running) then
+      {
+        state = arg.state with {
+          yes_votes = arg.state.yes_votes + (if arg.arg then 1 else 0),
+          no_votes = arg.state.no_votes + (if arg.arg then 0 else 1),
+          votes_done = arg.state.votes_done with [voter -> true]
+        },
+        value = { }
+      }
+
+export fun vote: Bool -> Effect (Read, Write, ReadEnv) { }
+  as vote_in_state updating_state
+
+fun end_vote_in_state: {
+    state: {
+      yes_votes: Uint,
+      no_votes: Uint,
+      votes_done: [Address -> Bool],
+      vote_running: Bool,
+      runner: Address
+    },
+    arg: { }
+  } -> Effect (ReadEnv) {
+    state: {
+      yes_votes: Uint,
+      no_votes: Uint,
+      votes_done: [Address -> Bool],
+      vote_running: Bool,
+      runner: Address
+    },
+    value: { } 
+  }
+  arg ->
+    require (arg.state.runner = message.sender! && arg.state.vote_running) then
+      {
+        state = arg.state with {
+          vote_running = false
+        },
+        value = { }
+      }
+
+export fun end_vote: { } -> Effect (Read, Write, ReadEnv) { }
+  as end_vote_in_state updating_state
+
+fun get_winner_from_state: {
+    state: {
+      yes_votes: Uint,
+      no_votes: Uint,
+      votes_done: [Address -> Bool],
+      vote_running: Bool,
+      runner: Address
+    },
+    arg: { }
+  } -> Bool
+  arg ->
+    require (arg.state.vote_running = false) then
+      arg.state.yes_votes >= arg.state.no_votes
+
+export fun get_winner: { } -> Effect (Read) Bool
+  as get_winner_from_state with_state
