@@ -1,0 +1,118 @@
+State {
+  account1: Address,
+  account2: Address,
+  account1_balance: Uint,
+  account2_balance: Uint
+}
+
+fun init: { } -> Effect (ReadEnv) {
+    account1: Address,
+    account2: Address,
+    account1_balance: Uint,
+    account2_balance: Uint
+  }
+  arg -> {
+    account1 = message.sender!,
+    account2 = @0,
+    account1_balance = 0,
+    account2_balance = 0
+  }
+
+fun set_account_2_in_state: {
+    state: {
+      account1: Address,
+      account2: Address,
+      account1_balance: Uint,
+      account2_balance: Uint
+    },
+    arg: Address
+  } -> Effect (ReadEnv) {
+    state: {
+      account1: Address,
+      account2: Address,
+      account1_balance: Uint,
+      account2_balance: Uint
+    },
+    value: { }
+  }
+  arg -> 
+    require (message.sender! = arg.state.account1) then
+    {
+      state = arg.state with {
+        account2 = arg.arg
+      },
+      value = { }
+    }
+
+export fun set_account_2: Address -> Effect (Read, Write, ReadEnv) { }
+  as set_account_2_in_state updating_state
+
+fun pay_in_state: {
+    state: {
+      account1: Address,
+      account2: Address,
+      account1_balance: Uint,
+      account2_balance: Uint
+    },
+    arg: { }
+  } -> Effect (Payable) {
+    state: {
+      account1: Address,
+      account2: Address,
+      account1_balance: Uint,
+      account2_balance: Uint
+    },
+    value: { }
+  }
+  arg ->
+    let value = message.value!;
+    require (value % 2 = 0) then
+      {
+        state = arg.state with {
+          account1_balance = arg.state.account1_balance + value / 2,
+          account2_balance = arg.state.account2_balance + value / 2
+        },
+        value = { }
+      }
+
+export fun pay: { } -> Effect (Payable, Read, Write) { }
+  as pay_in_state updating_state
+
+fun claim_balance_in_state: {
+    state: {
+      account1: Address,
+      account2: Address,
+      account1_balance: Uint,
+      account2_balance: Uint
+    },
+    arg: { }
+  } -> Effect (ReadEnv, Paying) {
+    state: {
+      account1: Address,
+      account2: Address,
+      account1_balance: Uint,
+      account2_balance: Uint
+    },
+    value: Uint
+  }
+  arg ->
+    let sender = message.sender!;
+    require (sender = arg.state.account1 || sender = arg.state.account2) then
+      let result = if (sender = arg.state.account1) then
+        {
+          state = arg.state with {
+            account1_balance = 0
+          },
+          value = arg.state.account1_balance
+        } else
+        {
+          state = arg.state with {
+            account2_balance = 0
+          },
+          value = arg.state.account2_balance
+        };
+      let send_result = (send result.value to sender)!;
+      result
+      
+export fun claim_balance: { } -> Effect (Read, Write, Paying, ReadEnv) Uint
+  as claim_balance_in_state updating_state

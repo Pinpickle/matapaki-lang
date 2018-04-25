@@ -9,6 +9,7 @@ const testCases = [
   require('./tests/erc20_token'),
   require('./tests/open_auction'),
   require('./tests/binary_vote'),
+  require('./tests/payment_splitter'),
 ];
 
 async function getContractDeploymentMeasures({ interface, bytecode }) {
