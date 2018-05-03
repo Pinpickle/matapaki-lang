@@ -1,8 +1,8 @@
 {
-  "name": "ethereum-new-language",
+  "name": "matapaki-lang",
   "version": "0.0.0",
   "main": ".",
-  "repository": "https://github.com/Pinpickle/ethereum-new-language.git",
+  "repository": "https://github.com/Pinpickle/matapaki-lang.git",
   "author": "Christian Silver",
   "license": "MIT",
   "scripts": {
