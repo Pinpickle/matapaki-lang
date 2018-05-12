@@ -7,7 +7,7 @@
   "license": "MIT",
   "scripts": {
     "test": "ava testing/unit",
-    "build": "jbuilder build ./compiler/src/main.exe"
+    "build": "jbuilder build ./compiler/frontend/main.exe"
   },
   "dependencies": {
     "ava": "^0.25.0",

@@ -35,6 +35,6 @@ export_code
     r_exported_functions
     r_init_function_payable
   in OCaml
-  file "src/compiler_theory.ml"
+  file "compiler_theory.ml"
 
 end
