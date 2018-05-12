@@ -1,7 +1,7 @@
 const csvStringify = require('csv-stringify');
 const fs = require('fs');
 
-const { testCases, runAllTests, timeAllContracts } = require('./test_corpus');
+const { testCases, runAllTests, timeAllContracts, testAllFactorial } = require('./test_corpus');
 
 function meanOfSamples(samples) {
   if (samples.length === 0) {
@@ -19,7 +19,7 @@ function confidenceIntervalOfSamples(samples) {
   const mean = meanOfSamples(samples);
 
   // 95% confidence interval
-  return Math.sqrt(samples.reduce((error, sample) => (sample - mean) ** 2, 0) / (samples.length - 1))  * 1.96 / Math.sqrt(samples.length);
+  return Math.sqrt(samples.reduce((error, sample) => (sample - mean) ** 2, 0));
 }
 
 function testDataToCSVRecords(testData) {
@@ -33,6 +33,8 @@ function testDataToCSVRecords(testData) {
         (contractTest.contract + ' ' + method.name).replace(/_/g, '\\_'),
         contractTest.solidity.methods[index].gasUsed,
         method.gasUsed,
+        Math.log10(contractTest.solidity.methods[index].gasUsed),
+        Math.log10(method.gasUsed),
       ]);
     });
 
@@ -41,6 +43,8 @@ function testDataToCSVRecords(testData) {
         contractTest.contract.replace(/_/g, '\\_'),
         contractTest.solidity.contract.gasUsed,
         contractTest.diamond.contract.gasUsed,
+        Math.log10(contractTest.solidity.contract.gasUsed),
+        Math.log10(contractTest.diamond.contract.gasUsed),
       ],
     );
 
@@ -49,27 +53,42 @@ function testDataToCSVRecords(testData) {
         contractTest.contract.replace(/_/g, '\\_'),
         contractTest.solidity.contract.binarySize,
         contractTest.diamond.contract.binarySize,
+        Math.log10(contractTest.solidity.contract.binarySize),
+        Math.log10(contractTest.diamond.contract.binarySize),
       ]
     );
   }
 
   return {
     methods: [
-      ['name', 'solidity', 'diamond'],
+      ['name', 'solidity', 'diamond', 'logsolidity', 'logdiamond'],
       ...methods
         .sort(([, solidityAGas], [, solidityBGas]) => solidityAGas - solidityBGas),
     ],
     contractGases: [
-      ['name', 'solidity', 'diamond'],
+      ['name', 'solidity', 'diamond', 'logsolidity', 'logdiamond'],
       ...contractGases
         .sort(([, solidityAGas], [, solidityBGas]) => solidityAGas - solidityBGas)
     ],
     contractBinaries: [
-      ['name', 'solidity', 'diamond'],
+      ['name', 'solidity', 'diamond', 'logsolidity', 'logdiamond'],
       ...contractBinaries
         .sort(([, solidityABinary], [, solidityBBinary]) => solidityABinary - solidityBBinary)
     ],
   }
+}
+
+function factorialDataToCSVRecords(factorialData) {
+  const rows = [];
+
+  factorialData.solidity.forEach((result, index) => {
+    rows.push([index, result, factorialData.diamond[index]]);
+  })
+
+  return [
+    ['input', 'solidity', 'diamond'],
+    ...rows
+  ];
 }
 
 function timeDataToCSVRecords(timeData) {
@@ -118,5 +137,14 @@ function exportTimesCSV() {
   });
 }
 
+function exportFactorialCSV() {
+  return testAllFactorial().then(factorialDataToCSVRecords).then(rows => {
+    csvStringify(rows, (err, output) => {
+      fs.writeFileSync('experiment/factorial_gas.csv', output);
+    });
+  });
+}
+
 exportTestsCSV();
 exportTimesCSV();
+//exportFactorialCSV();

@@ -37,7 +37,7 @@ async function timeFunction(toTime) {
   return seconds * 1000 + nanoseconds / 1000000
 }
 
-async function timeFunctionRepeats(toTime, repeats = 6) {
+async function timeFunctionRepeats(toTime, repeats = 20) {
   const results = [];
 
   for (let attempt = 0; attempt < repeats; attempt += 1) {
@@ -45,6 +45,32 @@ async function timeFunctionRepeats(toTime, repeats = 6) {
   }
 
   return results;
+}
+
+async function testFactorial({ interface, bytecode }) {
+  const client = createBlockchainClient();
+  const coinbase = await client.eth.getCoinbase();
+  const contract = new client.eth.Contract(interface);
+  const deployedContract = await contract
+    .deploy({ data: bytecode, arguments: [] })
+    .send({ from: coinbase, gas: 10000000, value: 0 })
+    .catch(e => {
+      console.log('Deploying failed');
+      throw e;
+    });
+    
+  deployedContract.setProvider(client.currentProvider);
+  return await Promise.all((new Array(58)).fill(0).map(async (_, index) => (await deployedContract.methods.factorial(index).send({ from: coinbase, gas: 1000000 })).gasUsed));
+}
+
+async function testAllFactorial() {
+  const compiledDiamond = await compileDiamond({ pathName: __dirname + '/diamond/factorial.dia' });
+  const compiledSolidity = await compileSolidity({ pathName: __dirname + '/solidity/Factorial.sol', contractName: 'Factorial' });
+
+  return {
+    diamond: await testFactorial(compiledDiamond),
+    solidity: await testFactorial(compiledSolidity),
+  }
 }
 
 async function runTest({ interface, bytecode }, testCase) {
@@ -128,5 +154,6 @@ async function timeAllContracts(testCases) {
 module.exports = {
   runAllTests,
   timeAllContracts,
+  testAllFactorial,
   testCases,
 };
