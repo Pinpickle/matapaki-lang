@@ -1,6 +1,6 @@
 # Matapaki
 
-A statically typed, functional programming language for the Ethereum Virtual Machine. Built for university dissertation.
+A statically typed, functional programming language for the Ethereum Virtual Machine.
 
 Features:
 
@@ -11,17 +11,18 @@ Features:
 - Records
 - Mappings (as temporary variables and in state)
 
+This was created as a university dissertation project.
+
 ## Set Up
 
 Make sure you have these installed:
 
 - Isabelle 2017
 - OCaml v4.02.3
+- Node.js v6+ (used for building and testing)
+- [Yarn](https://yarnpkg.com/en/) (used for building and testing)
 
-For testing, you will need
-
-- Node.js v6+
-- A native Solidity compiler (solc) installed
+For testing, you will need a [native Solidity compiler (solc)](https://github.com/ethereum/solidity) installed.
 
 Once the repository is downloaded, extract [eth-isabelle]() into `compiler/backend` (so it becomes `compiler/backend/eth-isabelle`). Follow the instructions in its README to set it up.
 
