@@ -6,7 +6,7 @@
   "author": "Christian Silver",
   "license": "MIT",
   "scripts": {
-    "test": "ava testing/unit",
+    "test": "ava testing/acceptance",
     "build": "jbuilder build ./compiler/frontend/main.exe"
   },
   "dependencies": {
